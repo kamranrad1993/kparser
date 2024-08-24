@@ -1,3 +1,5 @@
+use super::hpack::HpackHeaders;
+
 
 #[derive(Debug)]
 pub enum DataPayload{
@@ -6,6 +8,7 @@ pub enum DataPayload{
     Padding(Option<u16>),
 }
 
+#[derive(Debug)]
 pub enum HeadersPayloadPriority{
     ExclusiveFlag(bool),
     StreamDependency(u32),
@@ -16,7 +19,7 @@ pub enum HeadersPayloadPriority{
 pub enum HeadersPayload{
     PadLength(Option<u16>),
     Priority(HeadersPayloadPriority),
-    
+    HeaderBlockFragment(HpackHeaders),
     Padding(Option<u16>),
 }
 
