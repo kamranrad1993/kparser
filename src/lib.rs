@@ -1,5 +1,6 @@
 
 mod http2;
+mod int31;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right
