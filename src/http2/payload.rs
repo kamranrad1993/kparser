@@ -89,19 +89,22 @@ impl Into<Vec<u8>> for DataPayload {
 impl Into<Vec<u8>> for PriorityPayload {
     fn into(self) -> Vec<u8> {
         let mut result = Vec::new();
-        result.push(value)
+        let c = ((self.ExclusiveFlag as u32) << 31) & self.StreamDependency;
+        result.extend(c.to_le_bytes());
+        result.push(self.Weight);
+        result
     }
 }
 
 impl Into<Vec<u8>> for HeadersPayload {
     fn into(self) -> Vec<u8> {
         let mut data = Vec::new();
-        let mut data = Vec::new();
         if let Some(pad_length) = self.PadLength {
             data.push(pad_length);
         }
         if let Some(priority) = self.Priority {
-            // data.push(pad_length);
+            let l = Into::into(priority);
+            data.extend(l);
         }
 
         if let Some(padding) = self.Padding {
