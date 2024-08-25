@@ -150,15 +150,16 @@ pub mod ContinuationPayloadFlag {
     pub const END_HEADERS: u8 = 0x04;
 }
 
-#[derive(Debug)]
-pub enum Flag {
-    DATA(u8),
-    HEADERS(u8),
-    PRIORITY(u8),
-    RST_STREAM(u8),
-    SETTING(u8),
-    PUSH_PROMISE(u8),
-    COAWAY(u8),
-    wINDOW_UPDATE(u8),
-    CONTINUATION(u8),
-}
+// #[derive(Debug)]
+// pub enum Flag {
+//     DATA(u8),
+//     HEADERS(u8),
+//     PRIORITY(u8),
+//     RST_STREAM(u8),
+//     SETTING(u8),
+//     PUSH_PROMISE(u8),
+//     COAWAY(u8),
+//     wINDOW_UPDATE(u8),
+//     CONTINUATION(u8),
+// }
+

@@ -1,7 +1,7 @@
 use std::pin;
 
 use super::{
-    frame::FrameType, hpack::HpackHeaders, payload_flags::{DataPayloadFlag, Flag, HeadersPayloadFlag, PushPromisePayloadFlag}
+    frame::FrameType, hpack::HpackHeaders, payload_flags::{DataPayloadFlag, HeadersPayloadFlag, PushPromisePayloadFlag}
 };
 
 #[derive(Debug)]
@@ -387,7 +387,7 @@ impl FromBytes<ContinuationPayload> for ContinuationPayload {
 }
 
 impl Payload {
-    fn from(value: Vec<u8>, flag: u8, frame_type: FrameType) -> Result<Self, FromBytesError> {
+    pub fn from(value: Vec<u8>, flag: u8, frame_type: FrameType) -> Result<Self, FromBytesError> {
         match frame_type {
             FrameType::Data => Ok(Payload::Data(
                 <DataPayload as FromBytes<DataPayload>>::from(
