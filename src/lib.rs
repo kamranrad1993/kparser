@@ -1,14 +1,8 @@
 
 mod int31;
 
-pub mod http2{
-    pub mod frame;
-    pub mod hpack;
-    pub mod payload;
-    pub mod payload_flags;
-
-    pub use frame::{Frame, FrameType};
-}
+pub mod http2;
+pub use http2::*;
 
 
 
