@@ -1,3 +1,5 @@
+use std::pin;
+
 use super::{
     frame::FrameType, hpack::HpackHeaders, payload_flags::{DataPayloadFlag, Flag, HeadersPayloadFlag, PushPromisePayloadFlag}
 };
@@ -59,6 +61,11 @@ pub struct PushPromisePayload {
 }
 
 #[derive(Debug)]
+pub struct PingPayload{
+    OpaqueData: u64
+}
+
+#[derive(Debug)]
 pub struct GoAwayPayload {
     LastStreamId: u32, // maybe u31
     ErrorCode: u32,
@@ -77,15 +84,16 @@ pub struct ContinuationPayload {
 
 #[derive(Debug)]
 pub enum Payload {
-    Data(DataPayload),
-    Headers(HeadersPayload),
-    Priority(PriorityPayload),
-    RstStream(RstStreamPayload),
-    Settings(SettingsPayload),
-    PushPromise(PushPromisePayload),
-    GoAway(GoAwayPayload),
-    WindowUpdate(WindowUpdatePayload),
-    Continuation(ContinuationPayload),
+    Data(DataPayload), // 0
+    Headers(HeadersPayload), // 1
+    Priority(PriorityPayload), // 2
+    RstStream(RstStreamPayload), // 3
+    Settings(SettingsPayload), // 4
+    PushPromise(PushPromisePayload), // 5
+    Ping(PingPayload), // 6
+    GoAway(GoAwayPayload), // 7
+    WindowUpdate(WindowUpdatePayload), // 8
+    Continuation(ContinuationPayload), // 9
 }
 
 impl Into<Vec<u8>> for DataPayload {
@@ -167,6 +175,14 @@ impl Into<Vec<u8>> for PushPromisePayload {
     }
 }
 
+impl Into<Vec<u8>> for PingPayload {
+    fn into(self) -> Vec<u8> {
+        let mut result = Vec::new();
+        result.extend(self.OpaqueData.to_be_bytes());
+        result
+    }
+} 
+
 impl Into<Vec<u8>> for GoAwayPayload {
     fn into(self) -> Vec<u8> {
         let mut result = Vec::new();
@@ -202,6 +218,7 @@ impl Into<Vec<u8>> for Payload {
             Payload::RstStream(v) => v.into(),
             Payload::Settings(v) => v.into(),
             Payload::PushPromise(v) => v.into(),
+            Payload::Ping(v)=> v.into(),
             Payload::GoAway(v) => v.into(),
             Payload::WindowUpdate(v) => v.into(),
             Payload::Continuation(v) => v.into(),
@@ -323,6 +340,16 @@ impl FromBytes<PushPromisePayload> for PushPromisePayload {
     }
 }
 
+impl FromBytes<PingPayload> for PingPayload {
+    fn from(value: Vec<u8>, flags: u8) -> Result<PingPayload, FromBytesError> {
+        let opaq_data: [u8; 8] = value[0..8].try_into().unwrap();
+        let opaq_data = u64::from_be_bytes(opaq_data);
+        Ok(Self{
+            OpaqueData: opaq_data
+        })
+    }
+}
+
 impl FromBytes<GoAwayPayload> for GoAwayPayload {
     fn from(value: Vec<u8>, flag: u8) -> Result<Self, FromBytesError> {
         let stream_id: [u8; 4] = value[0..4].try_into().unwrap();
@@ -398,7 +425,12 @@ impl Payload {
                     flag,
                 )?
             )),
-            FrameType::Ping => todo!(), // ===========================================
+            FrameType::Ping => Ok(Payload::Ping(
+                <PingPayload as FromBytes<PingPayload>>::from(
+                    value,
+                    flag,
+                )?
+            )),
             FrameType::GoAway => Ok(Payload::GoAway(
                 <GoAwayPayload as FromBytes<GoAwayPayload>>::from(
                     value,
