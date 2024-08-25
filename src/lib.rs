@@ -6,6 +6,8 @@ pub mod http2{
     pub mod hpack;
     pub mod payload;
     pub mod payload_flags;
+
+    pub use frame::{Frame, FrameType}
 }
 
 
