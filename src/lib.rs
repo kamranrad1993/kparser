@@ -7,7 +7,7 @@ pub mod http2{
     pub mod payload;
     pub mod payload_flags;
 
-    pub use frame::{Frame, FrameType}
+    pub use frame::{Frame, FrameType};
 }
 
 
