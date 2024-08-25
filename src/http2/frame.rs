@@ -4,7 +4,7 @@ use crate::http2::payload_flags::Flag;
 use super::payload::Payload;
 
 #[derive(Debug)]
-enum FrameType {
+pub enum FrameType {
     Data = 0,
     Headers = 1,
     Priority = 2,
@@ -19,7 +19,7 @@ enum FrameType {
 }
 
 #[derive(Debug)]
-struct Frame {
+pub struct Frame {
     length: u32,
     frame_type: FrameType,
     flags: Flag,

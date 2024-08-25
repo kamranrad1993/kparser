@@ -89,8 +89,8 @@ impl Not for Int31 {
     }
 }
 
-impl Into<Vec<u8>> for Int31 {
-    fn into(self) -> Vec<u8> {
+// impl Into<Vec<u8>> for Int31 {
+//     fn into(self) -> Vec<u8> {
             
-    }
-}
+//     }
+// }
