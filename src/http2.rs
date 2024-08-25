@@ -12,7 +12,7 @@ pub use payload_flags::*;
 
 const DEFAULT_PRI: &str = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
 pub struct Http2Pri {
-    content: String,
+    pub content: String,
 }
 
 impl From<Vec<u8>> for Http2Pri {
