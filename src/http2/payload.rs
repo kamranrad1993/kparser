@@ -1,5 +1,3 @@
-use std::pin;
-
 use super::{
     frame::FrameType, hpack::HpackHeaders, payload_flags::{DataPayloadFlag, HeadersPayloadFlag, PushPromisePayloadFlag}
 };
@@ -20,66 +18,66 @@ pub trait FromBytes<T> {
 
 #[derive(Debug)]
 pub struct DataPayload {
-    PadLength: Option<u8>,
-    data: Vec<u8>,
-    Padding: Option<Vec<u8>>,
+    pub PadLength: Option<u8>,
+    pub data: Vec<u8>,
+    pub Padding: Option<Vec<u8>>,
 }
 
 #[derive(Debug)]
 pub struct HeadersPayload {
-    PadLength: Option<u8>,
-    Priority: Option<PriorityPayload>,
-    HeaderBlockFragment: HpackHeaders,
-    Padding: Option<Vec<u8>>,
+    pub PadLength: Option<u8>,
+    pub Priority: Option<PriorityPayload>,
+    pub HeaderBlockFragment: HpackHeaders,
+    pub Padding: Option<Vec<u8>>,
 }
 
 #[derive(Debug)]
 pub struct PriorityPayload {
-    ExclusiveFlag: bool,
-    StreamDependency: u32,
-    Weight: u8,
+    pub ExclusiveFlag: bool,
+    pub StreamDependency: u32,
+    pub Weight: u8,
 }
 
 #[derive(Debug)]
 pub struct RstStreamPayload {
-    ErrorCode: u32,
+    pub ErrorCode: u32,
 }
 
 type SettingIdentifier = u16;
 type SettingValue = u32;
 #[derive(Debug)]
 pub struct SettingsPayload {
-    settings: Vec<(SettingIdentifier, SettingValue)>,
+    pub settings: Vec<(SettingIdentifier, SettingValue)>,
 }
 
 #[derive(Debug)]
 pub struct PushPromisePayload {
-    PadLength: Option<u8>,
-    PromisedStreamId: u32,
-    HeaderBlockFragment: HpackHeaders,
-    Padding: Option<Vec<u8>>,
+    pub PadLength: Option<u8>,
+    pub PromisedStreamId: u32,
+    pub HeaderBlockFragment: HpackHeaders,
+    pub Padding: Option<Vec<u8>>,
 }
 
 #[derive(Debug)]
 pub struct PingPayload{
-    OpaqueData: u64
+    pub OpaqueData: u64
 }
 
 #[derive(Debug)]
 pub struct GoAwayPayload {
-    LastStreamId: u32, // maybe u31
-    ErrorCode: u32,
-    AdditionalData: Vec<u8>,
+    pub LastStreamId: u32, // maybe u31
+    pub ErrorCode: u32,
+    pub AdditionalData: Vec<u8>,
 }
 
 #[derive(Debug)]
 pub struct WindowUpdatePayload {
-    WindowSizeIncrement: u32, //31 bit intiger
+    pub WindowSizeIncrement: u32, //31 bit intiger
 }
 
 #[derive(Debug)]
 pub struct ContinuationPayload {
-    HeaderBlockFragment: HpackHeaders,
+    pub HeaderBlockFragment: HpackHeaders,
 }
 
 #[derive(Debug)]

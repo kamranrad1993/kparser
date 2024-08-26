@@ -21,11 +21,11 @@ pub enum FrameType {
 
 #[derive(Debug)]
 pub struct Frame {
-    length: u32,
-    frame_type: FrameType,
-    flags: u8,
-    stream_id: u32,
-    payload: Payload,
+    pub length: u32,
+    pub frame_type: FrameType,
+    pub flags: u8,
+    pub stream_id: u32,
+    pub payload: Payload,
 }
 
 impl Into<u8> for FrameType{
