@@ -64,9 +64,23 @@ mod tests {
         let frame = <Frame as From<Vec<u8>>>::from(buf);
         println!("frame type : {}" , frame.frame_type);
 
-        // if frame.frame_type == FrameType::Data {
-        //     let frame.payload
-        // }
+        match frame.payload{
+            Payload::Data(data) => {
+                println!("receive len {}", data.data.len());
+            //    let s = std::str::from_utf8(data.data.as_slice()).unwrap();
+            //    println!("received data : {s}");
+            },
+            _ => {}
+            // Payload::Headers(_) => todo!(),
+            // Payload::Priority(_) => todo!(),
+            // Payload::RstStream(_) => todo!(),
+            // Payload::Settings(_) => todo!(),
+            // Payload::PushPromise(_) => todo!(),
+            // Payload::Ping(_) => todo!(),
+            // Payload::GoAway(_) => todo!(),
+            // Payload::WindowUpdate(_) => todo!(),
+            // Payload::Continuation(_) => todo!(),
+        }
 
         let data_res = "hello".as_bytes().to_vec();
         let data_res_len = data_res.len() as u32;
