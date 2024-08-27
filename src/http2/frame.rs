@@ -1,4 +1,4 @@
-use std::{clone, result, vec};
+use std::{clone, fmt::Display, result, vec};
 
 use crate::http2::payload;
 
@@ -28,7 +28,26 @@ pub struct Frame {
     pub payload: Payload,
 }
 
-impl Into<u8> for FrameType{
+impl Display for FrameType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let result = match self {
+            FrameType::Data => "FrameType::Data",
+            FrameType::Headers => "FrameType::Headers",
+            FrameType::Priority => "FrameType::Priority",
+            FrameType::RstStream => "FrameType::RstStream",
+            FrameType::Settings => "FrameType::Settings",
+            FrameType::PushPromise => "FrameType::PushPromise",
+            FrameType::Ping => "FrameType::Ping",
+            FrameType::GoAway => "FrameType::GoAway",
+            FrameType::WindowUpdate => "FrameType::WindowUpdate",
+            FrameType::Continuation => "FrameType::Continuation",
+            FrameType::Unknown => "FrameType::Unknown",
+        };
+        f.write_str(result)
+    }
+}
+
+impl Into<u8> for FrameType {
     fn into(self) -> u8 {
         match self {
             FrameType::Data => 0,
@@ -46,7 +65,7 @@ impl Into<u8> for FrameType{
     }
 }
 
-impl Into<Vec<u8>> for Frame{
+impl Into<Vec<u8>> for Frame {
     fn into(self) -> Vec<u8> {
         let mut result = Vec::new();
         result.extend(self.length.to_be_bytes());
@@ -58,7 +77,7 @@ impl Into<Vec<u8>> for Frame{
     }
 }
 
-impl From<u8> for FrameType{
+impl From<u8> for FrameType {
     fn from(value: u8) -> Self {
         match value {
             0 => FrameType::Data,
@@ -88,19 +107,24 @@ impl From<Vec<u8>> for Frame {
         let mut stream_id = u32::from_be_bytes(stream_id);
         stream_id = stream_id & 0x7FFF_FFFF;
 
-        let payload = Payload::from(value[11..length as usize].to_vec(), flags, frame_type.clone()).unwrap();
+        let payload = Payload::from(
+            value[11..length as usize].to_vec(),
+            flags,
+            frame_type.clone(),
+        )
+        .unwrap();
 
-        Self{
+        Self {
             length,
             frame_type,
             flags,
             stream_id,
-            payload
+            payload,
         }
     }
 }
 
-impl Clone for FrameType{
+impl Clone for FrameType {
     fn clone(&self) -> Self {
         match self {
             Self::Data => Self::Data,
@@ -117,3 +141,5 @@ impl Clone for FrameType{
         }
     }
 }
+
+impl Frame {}
