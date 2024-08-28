@@ -2,7 +2,7 @@ use std::{clone, fmt::Display, result, vec};
 
 use crate::{http2::payload, u24::u24};
 
-use super::payload::Payload;
+use super::{len, payload::Payload};
 
 #[derive(Debug)]
 pub enum FrameType {
@@ -144,6 +144,8 @@ impl Clone for FrameType {
     }
 }
 
-impl Frame {
-    
+impl len for Frame {
+    fn binary_len(&self)->usize {
+        9 + self.payload.binary_len()
+    }
 }

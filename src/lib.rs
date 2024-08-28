@@ -1,5 +1,5 @@
 
-mod int31;
+pub mod u31;
 pub mod u24;
 
 pub mod http2;

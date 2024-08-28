@@ -15,7 +15,6 @@ impl u24 {
     }
 
     pub fn to_u32(self) -> u32 {
-        println!("-------------- {} {} {} ", (self.0[0] as u32) << 16, (self.0[1] as u32) << 8, (self.0[2] as u32));
         (self.0[0] as u32) << 16 | ((self.0[1] as u32) << 8) | ((self.0[2] as u32))
     }
 

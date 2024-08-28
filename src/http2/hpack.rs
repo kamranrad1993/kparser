@@ -1,5 +1,7 @@
 use std::{str::Bytes, vec};
 
+use super::len;
+
 const STATIC_TABLE: &[(&str, &str)] = &[
     (":authority", ""),
     (":method", "GET"),
@@ -173,5 +175,11 @@ impl From<Vec<u8>> for HpackHeaders {
     fn from(value: Vec<u8>) -> Self {
         let headers = HpackHeaders::decode_headers(&value);
         Self { headers: headers }
+    }
+}
+
+impl len for HpackHeaders {
+    fn binary_len(&self)->usize {
+        HpackHeaders::encode_headers(&self.headers).len() // TODO : improve 
     }
 }

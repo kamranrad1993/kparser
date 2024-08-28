@@ -1,5 +1,7 @@
 use std::result;
 
+use crate::u31::u31;
+
 use super::{
     frame::FrameType,
     hpack::HpackHeaders,
@@ -39,7 +41,7 @@ pub struct HeadersPayload {
 #[derive(Debug)]
 pub struct PriorityPayload {
     pub ExclusiveFlag: bool,
-    pub StreamDependency: u32,
+    pub StreamDependency: u31,
     pub Weight: u8,
 }
 
@@ -58,7 +60,7 @@ pub struct SettingsPayload {
 #[derive(Debug)]
 pub struct PushPromisePayload {
     pub PadLength: Option<u8>,
-    pub PromisedStreamId: u32,
+    pub PromisedStreamId: u31,
     pub HeaderBlockFragment: HpackHeaders,
     pub Padding: Option<Vec<u8>>,
 }
@@ -70,7 +72,7 @@ pub struct PingPayload {
 
 #[derive(Debug)]
 pub struct GoAwayPayload {
-    pub LastStreamId: u32, // maybe u31
+    pub LastStreamId: u31,
     pub ErrorCode: u32,
     pub AdditionalData: Vec<u8>,
 }
@@ -116,7 +118,7 @@ impl Into<Vec<u8>> for DataPayload {
 impl Into<Vec<u8>> for PriorityPayload {
     fn into(self) -> Vec<u8> {
         let mut result = Vec::new();
-        let c = ((self.ExclusiveFlag as u32) << 31) & self.StreamDependency;
+        let c = ((self.ExclusiveFlag as u32) << 31) & self.StreamDependency.to_u32();
         result.extend(c.to_be_bytes());
         result.push(self.Weight);
         result
@@ -168,7 +170,7 @@ impl Into<Vec<u8>> for PushPromisePayload {
             result.push(pad_length);
         }
 
-        result.extend((self.PromisedStreamId & 0x7FFF_FFFF).to_be_bytes());
+        result.extend(self.PromisedStreamId.to_bytes());
         result.extend::<Vec<u8>>(self.HeaderBlockFragment.into());
 
         if let Some(padding) = self.Padding {
@@ -189,7 +191,7 @@ impl Into<Vec<u8>> for PingPayload {
 impl Into<Vec<u8>> for GoAwayPayload {
     fn into(self) -> Vec<u8> {
         let mut result = Vec::new();
-        result.extend(self.LastStreamId.to_be_bytes());
+        result.extend(self.LastStreamId.to_bytes());
         result.extend(self.ErrorCode.to_be_bytes());
         result.extend(self.AdditionalData);
         result
@@ -252,10 +254,10 @@ impl FromBytes<DataPayload> for DataPayload {
 impl FromBytes<PriorityPayload> for PriorityPayload {
     fn from(value: Vec<u8>, flag: u8) -> Result<Self, FromBytesError> {
         let b32: [u8; 4] = value[0..4].try_into().unwrap();
-        let b32 = u32::from_be_bytes(b32);
+        let stream_dependency = u31::from_bytes(b32);
         Ok(PriorityPayload {
-            ExclusiveFlag: (b32 & 0x80000000) == 0x80000000,
-            StreamDependency: (b32 & 0x7FFF_FFFF),
+            ExclusiveFlag: (stream_dependency.to_u32() & 0x80000000) == 0x80000000,
+            StreamDependency: stream_dependency,
             Weight: value[5],
         })
     }
@@ -329,8 +331,7 @@ impl FromBytes<PushPromisePayload> for PushPromisePayload {
         let stream_id: [u8; 4] = value[stream_id_start..stream_id_start + 4]
             .try_into()
             .unwrap();
-        let mut stream_id = u32::from_be_bytes(stream_id);
-        stream_id = stream_id & 0x7FFF_FFFF;
+        let stream_id = u31::from_bytes(stream_id);
 
         Ok(PushPromisePayload {
             PadLength,
@@ -356,8 +357,7 @@ impl FromBytes<PingPayload> for PingPayload {
 impl FromBytes<GoAwayPayload> for GoAwayPayload {
     fn from(value: Vec<u8>, flag: u8) -> Result<Self, FromBytesError> {
         let stream_id: [u8; 4] = value[0..4].try_into().unwrap();
-        let mut stream_id = u32::from_be_bytes(stream_id);
-        stream_id = stream_id & 0x7FFF_FFFF;
+        let stream_id = u31::from_bytes(stream_id);
 
         let error_code: [u8; 4] = value[4..8].try_into().unwrap();
         let error_code = u32::from_be_bytes(error_code);
@@ -444,13 +444,103 @@ impl Payload {
 }
 
 impl len for DataPayload {
-    fn binary_len(self) -> usize {
+    fn binary_len(&self) -> usize {
         let mut result: usize = 0;
         if self.PadLength.is_some() {
+            result += 1;
             result += self.PadLength.unwrap() as usize;
-            result += self.Padding.unwrap().len();
         }
         result += self.data.len();
         result
+    }
+}
+
+impl len for PriorityPayload {
+    fn binary_len(&self) -> usize {
+        5
+    }
+}
+
+impl len for HeadersPayload {
+    fn binary_len(&self) -> usize {
+        let mut result: usize = 0;
+        if self.PadLength.is_some() {
+            result += 1;
+            result += self.PadLength.unwrap() as usize;
+        }
+
+        if self.Priority.is_some() {
+            result += self.Priority.as_ref().unwrap().binary_len();
+        }
+
+        result += self.HeaderBlockFragment.binary_len();
+        result
+    }
+}
+
+impl len for RstStreamPayload {
+    fn binary_len(&self) -> usize {
+        4
+    }
+}
+
+impl len for SettingsPayload {
+    fn binary_len(&self) -> usize {
+        self.settings.len() * 6
+    }
+}
+
+impl len for PushPromisePayload {
+    fn binary_len(&self) -> usize {
+        let mut result: usize = 0;
+        if self.PadLength.is_some() {
+            result += 1;
+            result += self.PadLength.unwrap() as usize;
+        }
+
+        result += 4; // PromisedStreamId
+        result += self.HeaderBlockFragment.binary_len();
+        result
+    }
+}
+
+impl len for PingPayload {
+    fn binary_len(&self) -> usize {
+        8
+    }
+}
+
+impl len for GoAwayPayload {
+    fn binary_len(&self) -> usize {
+        8 + self.AdditionalData.len()
+    }
+}
+
+impl len for WindowUpdatePayload {
+    fn binary_len(&self) -> usize {
+        4
+    }
+}
+
+impl len for ContinuationPayload {
+    fn binary_len(&self) -> usize {
+        self.HeaderBlockFragment.binary_len()
+    }
+}
+
+impl len for Payload {
+    fn binary_len(&self) -> usize {
+        match self{
+            Payload::Data(d) => d.binary_len(),
+            Payload::Headers(d) => d.binary_len() ,
+            Payload::Priority(d) => d.binary_len(),
+            Payload::RstStream(d) => d.binary_len(),
+            Payload::Settings(d) => d.binary_len(),
+            Payload::PushPromise(d) => d.binary_len(),
+            Payload::Ping(d) => d.binary_len(),
+            Payload::GoAway(d) => d.binary_len(),
+            Payload::WindowUpdate(d) => d.binary_len(),
+            Payload::Continuation(d) => d.binary_len(),
+        }
     }
 }
