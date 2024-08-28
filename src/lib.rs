@@ -1,5 +1,6 @@
 
 mod int31;
+pub mod u24;
 
 pub mod http2;
 pub use http2::Http2Pri;

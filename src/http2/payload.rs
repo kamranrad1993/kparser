@@ -1,5 +1,10 @@
+use std::result;
+
 use super::{
-    frame::FrameType, hpack::HpackHeaders, payload_flags::{DataPayloadFlag, HeadersPayloadFlag, PushPromisePayloadFlag}
+    frame::FrameType,
+    hpack::HpackHeaders,
+    len,
+    payload_flags::{DataPayloadFlag, HeadersPayloadFlag, PushPromisePayloadFlag},
 };
 
 #[derive(Debug)]
@@ -59,8 +64,8 @@ pub struct PushPromisePayload {
 }
 
 #[derive(Debug)]
-pub struct PingPayload{
-    pub OpaqueData: u64
+pub struct PingPayload {
+    pub OpaqueData: u64,
 }
 
 #[derive(Debug)]
@@ -82,14 +87,14 @@ pub struct ContinuationPayload {
 
 #[derive(Debug)]
 pub enum Payload {
-    Data(DataPayload), // 0
-    Headers(HeadersPayload), // 1
-    Priority(PriorityPayload), // 2
-    RstStream(RstStreamPayload), // 3
-    Settings(SettingsPayload), // 4
-    PushPromise(PushPromisePayload), // 5
-    Ping(PingPayload), // 6
-    GoAway(GoAwayPayload), // 7
+    Data(DataPayload),                 // 0
+    Headers(HeadersPayload),           // 1
+    Priority(PriorityPayload),         // 2
+    RstStream(RstStreamPayload),       // 3
+    Settings(SettingsPayload),         // 4
+    PushPromise(PushPromisePayload),   // 5
+    Ping(PingPayload),                 // 6
+    GoAway(GoAwayPayload),             // 7
     WindowUpdate(WindowUpdatePayload), // 8
     Continuation(ContinuationPayload), // 9
 }
@@ -179,7 +184,7 @@ impl Into<Vec<u8>> for PingPayload {
         result.extend(self.OpaqueData.to_be_bytes());
         result
     }
-} 
+}
 
 impl Into<Vec<u8>> for GoAwayPayload {
     fn into(self) -> Vec<u8> {
@@ -216,7 +221,7 @@ impl Into<Vec<u8>> for Payload {
             Payload::RstStream(v) => v.into(),
             Payload::Settings(v) => v.into(),
             Payload::PushPromise(v) => v.into(),
-            Payload::Ping(v)=> v.into(),
+            Payload::Ping(v) => v.into(),
             Payload::GoAway(v) => v.into(),
             Payload::WindowUpdate(v) => v.into(),
             Payload::Continuation(v) => v.into(),
@@ -342,8 +347,8 @@ impl FromBytes<PingPayload> for PingPayload {
     fn from(value: Vec<u8>, flags: u8) -> Result<PingPayload, FromBytesError> {
         let opaq_data: [u8; 8] = value[0..8].try_into().unwrap();
         let opaq_data = u64::from_be_bytes(opaq_data);
-        Ok(Self{
-            OpaqueData: opaq_data
+        Ok(Self {
+            OpaqueData: opaq_data,
         })
     }
 }
@@ -388,66 +393,64 @@ impl Payload {
     pub fn from(value: Vec<u8>, flag: u8, frame_type: FrameType) -> Result<Self, FromBytesError> {
         match frame_type {
             FrameType::Data => Ok(Payload::Data(
-                <DataPayload as FromBytes<DataPayload>>::from(
-                    value,
-                    flag,
-                )?
+                <DataPayload as FromBytes<DataPayload>>::from(value, flag)?,
             )),
-            FrameType::Headers => Ok(Payload::Headers(
-                <HeadersPayload as FromBytes<HeadersPayload>>::from(
-                    value,
-                    flag,
-                )?
-            )),
-            FrameType::Priority => Ok(Payload::Priority(
-                <PriorityPayload as FromBytes<PriorityPayload>>::from(
-                    value,
-                    flag,
-                )?
-            )),
-            FrameType::RstStream => Ok(Payload::RstStream(
-                <RstStreamPayload as FromBytes<RstStreamPayload>>::from(
-                    value,
-                    flag,
-                )?
-            )),
-            FrameType::Settings => Ok(Payload::Settings(
-                <SettingsPayload as FromBytes<SettingsPayload>>::from(
-                    value,
-                    flag,
-                )?
-            )),
-            FrameType::PushPromise => Ok(Payload::PushPromise(
-                <PushPromisePayload as FromBytes<PushPromisePayload>>::from(
-                    value,
-                    flag,
-                )?
-            )),
+
+            FrameType::Headers => Ok(Payload::Headers(<HeadersPayload as FromBytes<
+                HeadersPayload,
+            >>::from(value, flag)?)),
+
+            FrameType::Priority => Ok(Payload::Priority(<PriorityPayload as FromBytes<
+                PriorityPayload,
+            >>::from(value, flag)?)),
+
+            FrameType::RstStream => Ok(Payload::RstStream(<RstStreamPayload as FromBytes<
+                RstStreamPayload,
+            >>::from(value, flag)?)),
+
+            FrameType::Settings => Ok(Payload::Settings(<SettingsPayload as FromBytes<
+                SettingsPayload,
+            >>::from(value, flag)?)),
+
+            FrameType::PushPromise => {
+                Ok(Payload::PushPromise(<PushPromisePayload as FromBytes<
+                    PushPromisePayload,
+                >>::from(value, flag)?))
+            }
+
             FrameType::Ping => Ok(Payload::Ping(
-                <PingPayload as FromBytes<PingPayload>>::from(
-                    value,
-                    flag,
-                )?
+                <PingPayload as FromBytes<PingPayload>>::from(value, flag)?,
             )),
-            FrameType::GoAway => Ok(Payload::GoAway(
-                <GoAwayPayload as FromBytes<GoAwayPayload>>::from(
-                    value,
-                    flag,
-                )?
-            )),
-            FrameType::WindowUpdate => Ok(Payload::WindowUpdate(
-                <WindowUpdatePayload as FromBytes<WindowUpdatePayload>>::from(
-                    value,
-                    flag,
-                )?
-            )),
-            FrameType::Continuation => Ok(Payload::Continuation(
-                <ContinuationPayload as FromBytes<ContinuationPayload>>::from(
-                    value,
-                    flag,
-                )?
-            )),
-            FrameType::Unknown => Err(FromBytesError::InvalidPayloadType)
+
+            FrameType::GoAway => Ok(Payload::GoAway(<GoAwayPayload as FromBytes<
+                GoAwayPayload,
+            >>::from(value, flag)?)),
+
+            FrameType::WindowUpdate => {
+                Ok(Payload::WindowUpdate(<WindowUpdatePayload as FromBytes<
+                    WindowUpdatePayload,
+                >>::from(value, flag)?))
+            }
+
+            FrameType::Continuation => {
+                Ok(Payload::Continuation(<ContinuationPayload as FromBytes<
+                    ContinuationPayload,
+                >>::from(value, flag)?))
+            }
+
+            FrameType::Unknown => Err(FromBytesError::InvalidPayloadType),
         }
+    }
+}
+
+impl len for DataPayload {
+    fn binary_len(self) -> usize {
+        let mut result: usize = 0;
+        if self.PadLength.is_some() {
+            result += self.PadLength.unwrap() as usize;
+            result += self.Padding.unwrap().len();
+        }
+        result += self.data.len();
+        result
     }
 }

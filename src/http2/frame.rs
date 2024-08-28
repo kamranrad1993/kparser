@@ -1,6 +1,6 @@
 use std::{clone, fmt::Display, result, vec};
 
-use crate::http2::payload;
+use crate::{http2::payload, u24::u24};
 
 use super::payload::Payload;
 
@@ -21,7 +21,7 @@ pub enum FrameType {
 
 #[derive(Debug)]
 pub struct Frame {
-    pub length: u32,
+    pub length: u24,
     pub frame_type: FrameType,
     pub flags: u8,
     pub stream_id: u32,
@@ -68,7 +68,7 @@ impl Into<u8> for FrameType {
 impl Into<Vec<u8>> for Frame {
     fn into(self) -> Vec<u8> {
         let mut result = Vec::new();
-        result.extend(self.length.to_be_bytes());
+        result.extend(self.length.to_bytes());
         result.push(self.frame_type.into());
         result.push(self.flags);
         result.extend((self.stream_id & 0x7FFF_FFFF).to_be_bytes());
@@ -97,8 +97,10 @@ impl From<u8> for FrameType {
 
 impl From<Vec<u8>> for Frame {
     fn from(value: Vec<u8>) -> Self {
-        let length: [u8; 4] = value[0..4].try_into().unwrap();
-        let length = u32::from_be_bytes(length);
+        let length: [u8; 3] = value[0..3].try_into().unwrap();
+        let length = u24::from_bytes(length);
+
+        println!("++++++++++ {}", length.to_u32());
 
         let frame_type = FrameType::from(value[5]);
         let flags = value[6];
@@ -108,7 +110,7 @@ impl From<Vec<u8>> for Frame {
         stream_id = stream_id & 0x7FFF_FFFF;
 
         let payload = Payload::from(
-            value[11..length as usize].to_vec(),
+            value[11..length.to_u32() as usize].to_vec(),
             flags,
             frame_type.clone(),
         )
@@ -142,4 +144,6 @@ impl Clone for FrameType {
     }
 }
 
-impl Frame {}
+impl Frame {
+    
+}
