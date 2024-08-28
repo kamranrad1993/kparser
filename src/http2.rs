@@ -11,7 +11,7 @@ pub use payload::*;
 pub use payload_flags::*;
 
 trait len {
-    fn binary_len(&self)->usize;
+    fn binary_len(&self) -> usize;
 }
 
 const DEFAULT_PRI: &str = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
@@ -20,7 +20,7 @@ pub struct Http2Pri {
 }
 
 #[derive(Debug)]
-pub enum Http2PriErr{
+pub enum Http2PriErr {
     BufferSizeError,
     ParseError,
 }
@@ -33,7 +33,7 @@ impl From<Vec<u8>> for Http2Pri {
     }
 }
 
-impl Http2Pri{
+impl Http2Pri {
     pub fn read_and_remove(buffer: &mut Vec<u8>) -> Result<Http2Pri, Http2PriErr> {
         if buffer.len() < 24 {
             return Err(Http2PriErr::BufferSizeError);
@@ -45,22 +45,22 @@ impl Http2Pri{
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use std::{io::{Read, Write}, net::{
-        TcpListener,
-        TcpStream
-    }, vec};
     use crate::u24::u24;
+    use std::{
+        io::{Read, Write},
+        net::{TcpListener, TcpStream},
+        vec,
+    };
 
     use super::*;
 
     fn read_frame(buf: Vec<u8>) -> usize {
         let frame = <Frame as From<Vec<u8>>>::from(buf);
         let len = frame.binary_len();
-        println!("frame type : {}" , frame.frame_type);
-        println!("frame length : {}" , frame.length);
+        println!("frame type : {}", frame.frame_type);
+        println!("frame length : {}", frame.length);
         // match frame.payload{
         //     Payload::Data(data) => {
         //         println!("receive len {}", data.data.len());
@@ -88,18 +88,20 @@ mod tests {
         let (tcp_stream, address) = &mut listener.accept().unwrap();
         println!("new connection");
 
-        let mut buf = vec![0u8;8192];
+        let mut buf = vec![0u8; 8192];
         let size = tcp_stream.read(&mut buf).unwrap();
 
         let pri = Http2Pri::read_and_remove(&mut buf).unwrap();
-        
+
         // let frame = <Frame as From<Vec<u8>>>::from(buf);
         // println!("frame type : {}" , frame.frame_type);
         // println!("frame length : {}" , frame.length);
 
         let mut buf_index = 0;
         loop {
-            buf_index = read_frame( buf[buf_index..].to_vec());
+            let frame_len = read_frame(buf[buf_index..].to_vec());
+            buf_index += frame_len;
+            // buf_index += 1;
             println!("buf index {buf_index}")
         }
 

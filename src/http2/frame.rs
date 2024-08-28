@@ -99,18 +99,17 @@ impl From<Vec<u8>> for Frame {
     fn from(value: Vec<u8>) -> Self {
         let length: [u8; 3] = value[0..3].try_into().unwrap();
         let length = u24::from_bytes(length);
+        let length_2 = length.to_u32();
+        
+        let frame_type = FrameType::from(value[3]);
+        let flags = value[4];
 
-        println!("++++++++++ {}", length.to_u32());
-
-        let frame_type = FrameType::from(value[5]);
-        let flags = value[6];
-
-        let stream_id: [u8; 4] = value[7..11].try_into().unwrap();
+        let stream_id: [u8; 4] = value[5..9].try_into().unwrap();
         let mut stream_id = u32::from_be_bytes(stream_id);
         stream_id = stream_id & 0x7FFF_FFFF;
 
         let payload = Payload::from(
-            value[11..length.to_u32() as usize].to_vec(),
+            value[9..(9 + length.to_u32() as usize)].to_vec(),
             flags,
             frame_type.clone(),
         )
@@ -145,7 +144,7 @@ impl Clone for FrameType {
 }
 
 impl len for Frame {
-    fn binary_len(&self)->usize {
+    fn binary_len(&self) -> usize {
         9 + self.payload.binary_len()
     }
 }

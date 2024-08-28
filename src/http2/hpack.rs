@@ -135,10 +135,12 @@ impl HpackHeaders {
             }
         } else if first_byte & 0b01000000 == 0b01000000 {
             // Literal Header Field with Incremental Indexing
-            let name_len = encoded[1] as usize;
-            let name = String::from_utf8_lossy(&encoded[2..2 + name_len]).to_string();
-            let value_len = encoded[2 + name_len] as usize;
-            let value = String::from_utf8_lossy(&encoded[3 + name_len..3 + name_len + value_len])
+            let name_len = (encoded[1] & 0b01111111) as usize;
+            let l1=encoded[2..(2 + name_len)].to_vec();
+            let name = String::from_utf8_lossy(&encoded[2..(2 + name_len)]).to_string();
+            let value_len = (encoded[2 + name_len] & 0b01111111) as usize;
+            let l2 = encoded[2+ name_len];
+            let value = String::from_utf8_lossy(&encoded[(3 + name_len)..(3 + name_len + value_len)])
                 .to_string();
             return Some(((name, value), 3 + name_len + value_len));
         }

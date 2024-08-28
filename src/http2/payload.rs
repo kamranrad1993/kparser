@@ -258,7 +258,7 @@ impl FromBytes<PriorityPayload> for PriorityPayload {
         Ok(PriorityPayload {
             ExclusiveFlag: (stream_dependency.to_u32() & 0x80000000) == 0x80000000,
             StreamDependency: stream_dependency,
-            Weight: value[5],
+            Weight: value[4],
         })
     }
 }
@@ -305,10 +305,10 @@ impl FromBytes<RstStreamPayload> for RstStreamPayload {
 impl FromBytes<SettingsPayload> for SettingsPayload {
     fn from(value: Vec<u8>, flag: u8) -> Result<Self, FromBytesError> {
         let mut result = Vec::new();
-        for i in (0..value.len() / 6) {
-            let b16: [u8; 2] = value[i..i + 2].try_into().unwrap();
+        for i in (0..(value.len() / 6)) {
+            let b16: [u8; 2] = value[i..(i + 2)].try_into().unwrap();
             let b16 = u16::from_be_bytes(b16);
-            let b32: [u8; 4] = value[i + 2..i + 4].try_into().unwrap();
+            let b32: [u8; 4] = value[(i + 2)..(i + 6)].try_into().unwrap();
             let b32 = u32::from_be_bytes(b32);
             result.push((b16, b32));
         }
@@ -372,7 +372,7 @@ impl FromBytes<GoAwayPayload> for GoAwayPayload {
 
 impl FromBytes<WindowUpdatePayload> for WindowUpdatePayload {
     fn from(value: Vec<u8>, flag: u8) -> Result<Self, FromBytesError> {
-        let window_size: [u8; 4] = value[4..8].try_into().unwrap();
+        let window_size: [u8; 4] = value[0..4].try_into().unwrap();
         let window_size = u32::from_be_bytes(window_size);
 
         Ok(WindowUpdatePayload {
