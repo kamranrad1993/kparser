@@ -4,7 +4,7 @@ use crate::u31::u31;
 
 use super::{
     frame::FrameType,
-    hpack::HpackHeaders,
+    hpack::{self, Hpack},
     len,
     payload_flags::{DataPayloadFlag, HeadersPayloadFlag, PushPromisePayloadFlag},
 };
@@ -34,7 +34,7 @@ pub struct DataPayload {
 pub struct HeadersPayload {
     pub PadLength: Option<u8>,
     pub Priority: Option<PriorityPayload>,
-    pub HeaderBlockFragment: HpackHeaders,
+    pub HeaderBlockFragment: Hpack,
     pub Padding: Option<Vec<u8>>,
 }
 
@@ -61,7 +61,7 @@ pub struct SettingsPayload {
 pub struct PushPromisePayload {
     pub PadLength: Option<u8>,
     pub PromisedStreamId: u31,
-    pub HeaderBlockFragment: HpackHeaders,
+    pub HeaderBlockFragment: Hpack,
     pub Padding: Option<Vec<u8>>,
 }
 
@@ -84,7 +84,7 @@ pub struct WindowUpdatePayload {
 
 #[derive(Debug)]
 pub struct ContinuationPayload {
-    pub HeaderBlockFragment: HpackHeaders,
+    pub HeaderBlockFragment: Hpack,
 }
 
 #[derive(Debug)]
@@ -286,7 +286,7 @@ impl FromBytes<HeadersPayload> for HeadersPayload {
         Ok(HeadersPayload {
             PadLength: PadLength,
             Priority: priority,
-            HeaderBlockFragment: <HpackHeaders as From<Vec<u8>>>::from(
+            HeaderBlockFragment: <Hpack as From<Vec<u8>>>::from(
                 value[header_start..header_end].to_vec(),
             ),
             Padding: Some(value[header_end..].to_vec()),
@@ -336,7 +336,7 @@ impl FromBytes<PushPromisePayload> for PushPromisePayload {
         Ok(PushPromisePayload {
             PadLength,
             PromisedStreamId: stream_id,
-            HeaderBlockFragment: <HpackHeaders as From<Vec<u8>>>::from(
+            HeaderBlockFragment: <Hpack as From<Vec<u8>>>::from(
                 value[header_start..header_end].to_vec(),
             ),
             Padding: Some(value[header_end..].to_vec()),
@@ -384,7 +384,7 @@ impl FromBytes<WindowUpdatePayload> for WindowUpdatePayload {
 impl FromBytes<ContinuationPayload> for ContinuationPayload {
     fn from(value: Vec<u8>, flag: u8) -> Result<Self, FromBytesError> {
         Ok(ContinuationPayload {
-            HeaderBlockFragment: <HpackHeaders as From<Vec<u8>>>::from(value),
+            HeaderBlockFragment: <Hpack as From<Vec<u8>>>::from(value),
         })
     }
 }

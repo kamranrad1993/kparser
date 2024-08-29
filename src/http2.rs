@@ -2,6 +2,7 @@ pub mod frame;
 pub mod hpack;
 pub mod payload;
 pub mod payload_flags;
+pub mod huffman;
 
 use std::str::FromStr;
 
@@ -9,6 +10,7 @@ pub use frame::*;
 pub use hpack::*;
 pub use payload::*;
 pub use payload_flags::*;
+pub use huffman::*;
 
 trait len {
     fn binary_len(&self) -> usize;
@@ -57,28 +59,36 @@ mod tests {
     use super::*;
 
     fn read_frame(buf: Vec<u8>) -> usize {
-        let frame = <Frame as From<Vec<u8>>>::from(buf);
+        let mut frame = <Frame as From<Vec<u8>>>::from(buf);
         let len = frame.binary_len();
         println!("frame type : {}", frame.frame_type);
         println!("frame length : {}", frame.length);
-        // match frame.payload{
-        //     Payload::Data(data) => {
-        //         println!("receive len {}", data.data.len());
-        //     //    let s = std::str::from_utf8(data.data.as_slice()).unwrap();
-        //     //    println!("received data : {s}");
-        //     },
-        //     _ => {}
-        //     // Payload::Headers(_) => todo!(),
-        //     // Payload::Priority(_) => todo!(),
-        //     // Payload::RstStream(_) => todo!(),
-        //     // Payload::Settings(_) => todo!(),
-        //     // Payload::PushPromise(_) => todo!(),
-        //     // Payload::Ping(_) => todo!(),
-        //     // Payload::GoAway(_) => todo!(),
-        //     // Payload::WindowUpdate(_) => todo!(),
-        //     // Payload::Continuation(_) => todo!(),
-        // }
+        println!("stream id : {}", frame.stream_id);
+        match &mut frame.payload{
+            Payload::Data(data) => {
+                println!("receive len {}", data.data.len());
+            //    let s = std::str::from_utf8(data.data.as_slice()).unwrap();
+            //    println!("received data : {s}");
+            },
+            Payload::Headers(headers) => {
+                println!("Headers: ");
+                for i in headers.HeaderBlockFragment.decode().unwrap() {
+                    let key = String::from_utf8_lossy(&i.0);
+                    let value = String::from_utf8_lossy(&i.1);
 
+                    println!("  {}: {}", key, value);
+                }
+            },
+            Payload::Priority(_) => println!("payload:  Priority"),
+            Payload::RstStream(_) => println!("payload:  RstStream"),
+            Payload::Settings(_) => println!("payload:  Settings"),
+            Payload::PushPromise(_) => println!("payload:  PushPromise"),
+            Payload::Ping(_) => println!("payload:  Ping"),
+            Payload::GoAway(_) => println!("payload:  GoAway"),
+            Payload::WindowUpdate(_) => println!("payload:  WindowUpdate"),
+            Payload::Continuation(_) => println!("payload:  Continuation"),
+        }
+        println!("+++++++++++++++++++++++++++++++++++++++++++++++++++");
         len
     }
 
@@ -90,6 +100,7 @@ mod tests {
 
         let mut buf = vec![0u8; 8192];
         let size = tcp_stream.read(&mut buf).unwrap();
+        buf = buf[0..size].to_vec();
 
         let pri = Http2Pri::read_and_remove(&mut buf).unwrap();
 
@@ -99,45 +110,30 @@ mod tests {
 
         let mut buf_index = 0;
         loop {
+            if buf_index >= buf.len() {
+                break;
+            }
             let frame_len = read_frame(buf[buf_index..].to_vec());
             buf_index += frame_len;
             // buf_index += 1;
-            println!("buf index {buf_index}")
+            // println!("buf index {buf_index}")
         }
 
-        // match frame.payload{
-        //     Payload::Data(data) => {
-        //         println!("receive len {}", data.data.len());
-        //     //    let s = std::str::from_utf8(data.data.as_slice()).unwrap();
-        //     //    println!("received data : {s}");
-        //     },
-        //     _ => {}
-        //     // Payload::Headers(_) => todo!(),
-        //     // Payload::Priority(_) => todo!(),
-        //     // Payload::RstStream(_) => todo!(),
-        //     // Payload::Settings(_) => todo!(),
-        //     // Payload::PushPromise(_) => todo!(),
-        //     // Payload::Ping(_) => todo!(),
-        //     // Payload::GoAway(_) => todo!(),
-        //     // Payload::WindowUpdate(_) => todo!(),
-        //     // Payload::Continuation(_) => todo!(),
-        // }
-
-        // let data_res = "hello".as_bytes().to_vec();
-        // let data_res_len: u24 = data_res.len().into();
-        // let payload_res = DataPayload{
-        //     PadLength: None,
-        //     data: data_res,
-        //     Padding: None,
-        // };
-        // let frame_res = Frame{
-        //     length: data_res_len,
-        //     frame_type: FrameType::Data,
-        //     flags: 0,
-        //     stream_id: frame.stream_id,
-        //     payload: Payload::Data(payload_res),
-        // };
-        // let res: Vec<u8> = frame_res.into();
-        // tcp_stream.write(res.as_slice()).unwrap();
+        let data_res = "hello".as_bytes().to_vec();
+        let data_res_len: u24 = data_res.len().into();
+        let payload_res = DataPayload{
+            PadLength: None,
+            data: data_res,
+            Padding: None,
+        };
+        let frame_res = Frame{
+            length: data_res_len,
+            frame_type: FrameType::Data,
+            flags: 0,
+            stream_id: 2,
+            payload: Payload::Data(payload_res),
+        };
+        let res: Vec<u8> = frame_res.into();
+        tcp_stream.write(res.as_slice()).unwrap();
     }
 }
