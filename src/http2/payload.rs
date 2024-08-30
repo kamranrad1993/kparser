@@ -50,8 +50,15 @@ pub struct RstStreamPayload {
     pub ErrorCode: u32,
 }
 
-type SettingIdentifier = u16;
-type SettingValue = u32;
+pub type SettingIdentifier = u16;
+pub type SettingValue = u32;
+pub const SETTINGS_HEADER_TABLE_SIZE: SettingIdentifier = 0x01;
+pub const SETTINGS_ENABLE_PUSH: SettingIdentifier = 0x02;
+pub const SETTINGS_MAX_CONCURRENT_STREAMS: SettingIdentifier = 0x03;
+pub const SETTINGS_INITIAL_WINDOW_SIZE: SettingIdentifier = 0x04;
+pub const SETTINGS_MAX_FRAME_SIZE: SettingIdentifier = 0x05;
+pub const SETTINGS_MAX_HEADER_LIST_SIZE: SettingIdentifier = 0x06;
+
 #[derive(Debug)]
 pub struct SettingsPayload {
     pub settings: Vec<(SettingIdentifier, SettingValue)>,
@@ -530,9 +537,9 @@ impl len for ContinuationPayload {
 
 impl len for Payload {
     fn binary_len(&self) -> usize {
-        match self{
+        match self {
             Payload::Data(d) => d.binary_len(),
-            Payload::Headers(d) => d.binary_len() ,
+            Payload::Headers(d) => d.binary_len(),
             Payload::Priority(d) => d.binary_len(),
             Payload::RstStream(d) => d.binary_len(),
             Payload::Settings(d) => d.binary_len(),

@@ -1,16 +1,16 @@
 pub mod frame;
 pub mod hpack;
+pub mod huffman;
 pub mod payload;
 pub mod payload_flags;
-pub mod huffman;
 
 use std::str::FromStr;
 
 pub use frame::*;
 pub use hpack::*;
+pub use huffman::*;
 pub use payload::*;
 pub use payload_flags::*;
-pub use huffman::*;
 
 trait len {
     fn binary_len(&self) -> usize;
@@ -64,12 +64,12 @@ mod tests {
         println!("frame type : {}", frame.frame_type);
         println!("frame length : {}", frame.length);
         println!("stream id : {}", frame.stream_id);
-        match &mut frame.payload{
+        match &mut frame.payload {
             Payload::Data(data) => {
                 println!("receive len {}", data.data.len());
-            //    let s = std::str::from_utf8(data.data.as_slice()).unwrap();
-            //    println!("received data : {s}");
-            },
+                //    let s = std::str::from_utf8(data.data.as_slice()).unwrap();
+                //    println!("received data : {s}");
+            }
             Payload::Headers(headers) => {
                 println!("Headers: ");
                 for i in headers.HeaderBlockFragment.decode().unwrap() {
@@ -78,7 +78,7 @@ mod tests {
 
                     println!("  {}: {}", key, value);
                 }
-            },
+            }
             Payload::Priority(_) => println!("payload:  Priority"),
             Payload::RstStream(_) => println!("payload:  RstStream"),
             Payload::Settings(_) => println!("payload:  Settings"),
@@ -104,10 +104,6 @@ mod tests {
 
         let pri = Http2Pri::read_and_remove(&mut buf).unwrap();
 
-        // let frame = <Frame as From<Vec<u8>>>::from(buf);
-        // println!("frame type : {}" , frame.frame_type);
-        // println!("frame length : {}" , frame.length);
-
         let mut buf_index = 0;
         loop {
             if buf_index >= buf.len() {
@@ -115,18 +111,66 @@ mod tests {
             }
             let frame_len = read_frame(buf[buf_index..].to_vec());
             buf_index += frame_len;
-            // buf_index += 1;
-            // println!("buf index {buf_index}")
         }
 
+        let headers = [
+            ("status".as_bytes().to_vec(), "200 OK".as_bytes().to_vec()),
+            (
+                "Content-Type".as_bytes().to_vec(),
+                "text/plain".as_bytes().to_vec(),
+            ),
+        ];
+
+        let settings = SettingsPayload {
+            settings: [
+                (SETTINGS_HEADER_TABLE_SIZE, 4096),
+                (SETTINGS_ENABLE_PUSH, 0),
+                (SETTINGS_MAX_CONCURRENT_STREAMS, 100),
+                (SETTINGS_INITIAL_WINDOW_SIZE, 65535),
+                (SETTINGS_MAX_FRAME_SIZE, 16384),
+                (SETTINGS_MAX_HEADER_LIST_SIZE, 50),
+            ]
+            .to_vec(),
+        };
+        let settings_frame = Frame {
+            length: u24::new(settings.binary_len() as u32),
+            frame_type: FrameType::Settings,
+            flags: 0,
+            stream_id: 0,
+            payload: Payload::Settings(settings),
+        };
+        let settings_frame: Vec<u8> = settings_frame.into();
+        tcp_stream.write(settings_frame.as_slice()).unwrap();
+
+        let mut hpack = Hpack::new(10);
+        hpack.encode(&headers);
+
+        let headers_payload = HeadersPayload {
+            PadLength: None,
+            Priority: None,
+            HeaderBlockFragment: hpack.into(),
+            Padding: None,
+        };
+        let headers_res_len: u24 = headers_payload.binary_len().into();
+        let headers_frame = Frame {
+            length: headers_res_len,
+            frame_type: FrameType::Headers,
+            flags: 0 | HeadersPayloadFlag::END_HEADERS,
+            stream_id: 15,
+            payload: Payload::Headers(headers_payload),
+        };
+        let headers_frame: Vec<u8> = headers_frame.into();
+        println!("{:?}", headers_frame);
+        tcp_stream.write(headers_frame.as_slice()).unwrap();
+
         let data_res = "hello".as_bytes().to_vec();
-        let data_res_len: u24 = data_res.len().into();
-        let payload_res = DataPayload{
+        let payload_res = DataPayload {
             PadLength: None,
             data: data_res,
             Padding: None,
         };
-        let frame_res = Frame{
+        let data_res_len: u24 = payload_res.binary_len().into();
+        let frame_res = Frame {
             length: data_res_len,
             frame_type: FrameType::Data,
             flags: 0,
