@@ -116,7 +116,7 @@ mod tests {
         let headers = [
             ("status".as_bytes().to_vec(), "200 OK".as_bytes().to_vec()),
             (
-                "Content-Type".as_bytes().to_vec(),
+                "content-type".as_bytes().to_vec(),
                 "text/plain".as_bytes().to_vec(),
             ),
         ];
@@ -155,13 +155,17 @@ mod tests {
         let headers_frame = Frame {
             length: headers_res_len,
             frame_type: FrameType::Headers,
-            flags: 0 | HeadersPayloadFlag::END_HEADERS,
-            stream_id: 15,
+            flags: 0u8
+                | HeadersPayloadFlag::END_HEADERS
+                // | HeadersPayloadFlag::END_STREAM
+                // | HeadersPayloadFlag::PRIORITY
+                ,
+            stream_id: 13,
             payload: Payload::Headers(headers_payload),
         };
         let headers_frame: Vec<u8> = headers_frame.into();
         println!("{:?}", headers_frame);
-        tcp_stream.write(headers_frame.as_slice()).unwrap();
+        // tcp_stream.write(headers_frame.as_slice()).unwrap();
 
         let data_res = "hello".as_bytes().to_vec();
         let payload_res = DataPayload {
@@ -173,11 +177,15 @@ mod tests {
         let frame_res = Frame {
             length: data_res_len,
             frame_type: FrameType::Data,
-            flags: 0,
+            flags: 0 | DataPayloadFlag::END_STREAM,
             stream_id: 2,
             payload: Payload::Data(payload_res),
         };
         let res: Vec<u8> = frame_res.into();
         tcp_stream.write(res.as_slice()).unwrap();
+
+        tcp_stream.write(headers_frame.as_slice()).unwrap();
+
+        tcp_stream.flush();
     }
 }
