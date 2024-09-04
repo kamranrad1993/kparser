@@ -3,6 +3,7 @@ pub mod hpack;
 pub mod huffman;
 pub mod payload;
 pub mod payload_flags;
+pub mod Message;
 
 use std::str::FromStr;
 
@@ -11,6 +12,7 @@ pub use hpack::*;
 pub use huffman::*;
 pub use payload::*;
 pub use payload_flags::*;
+pub use Message::*;
 
 trait len {
     fn binary_len(&self) -> usize;
