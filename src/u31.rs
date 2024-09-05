@@ -1,6 +1,5 @@
 use std::{
-    fmt,
-    ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Not, Rem, Shl, Shr, Sub},
+    fmt, hash::Hash, ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Not, Rem, Shl, Shr, Sub}
 };
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
@@ -155,5 +154,11 @@ impl Into<Vec<u8>> for u31 {
 impl Into<u32> for u31 {
     fn into(self) -> u32 {
         self.to_u32()
+    }
+}
+
+impl Hash for u31 {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.to_u32().hash(state);
     }
 }
