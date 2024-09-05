@@ -14,7 +14,7 @@ pub use message::*;
 pub use payload::*;
 pub use payload_flags::*;
 
-trait len {
+pub trait len {
     fn binary_len(&self) -> usize;
 }
 
