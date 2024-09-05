@@ -1,7 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::convert::TryFrom;
 
-use super::{huffman_decode, huffman_encode, len};
+use super::{huffman_decode, huffman_encode, Len};
 
 #[derive(Debug)]
 pub enum HpackError {
@@ -358,7 +358,7 @@ impl From<Hpack> for Vec<u8> {
     }
 }
 
-impl len for Hpack {
+impl Len for Hpack {
     fn binary_len(&self) -> usize {
         self.encoded_size()
     }

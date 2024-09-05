@@ -2,7 +2,7 @@ use std::{clone, fmt::Display, result, vec};
 
 use crate::{http2::payload, u24::u24, u31::u31};
 
-use super::{len, payload::Payload, FromBytesError};
+use super::{Len, payload::Payload, FromBytesError};
 
 pub enum FrameParseError {
     InsufficentLength,
@@ -156,7 +156,7 @@ impl Clone for FrameType {
     }
 }
 
-impl len for Frame {
+impl Len for Frame {
     fn binary_len(&self) -> usize {
         9 + self.payload.binary_len()
     }

@@ -5,7 +5,7 @@ use crate::u31::u31;
 use super::{
     frame::FrameType,
     hpack::{self, Hpack},
-    len,
+    Len,
     payload_flags::{DataPayloadFlag, HeadersPayloadFlag, PushPromisePayloadFlag},
 };
 
@@ -451,7 +451,7 @@ impl Payload {
     }
 }
 
-impl len for DataPayload {
+impl Len for DataPayload {
     fn binary_len(&self) -> usize {
         let mut result: usize = 0;
         if self.PadLength.is_some() {
@@ -463,13 +463,13 @@ impl len for DataPayload {
     }
 }
 
-impl len for PriorityPayload {
+impl Len for PriorityPayload {
     fn binary_len(&self) -> usize {
         5
     }
 }
 
-impl len for HeadersPayload {
+impl Len for HeadersPayload {
     fn binary_len(&self) -> usize {
         let mut result: usize = 0;
         if self.PadLength.is_some() {
@@ -486,19 +486,19 @@ impl len for HeadersPayload {
     }
 }
 
-impl len for RstStreamPayload {
+impl Len for RstStreamPayload {
     fn binary_len(&self) -> usize {
         4
     }
 }
 
-impl len for SettingsPayload {
+impl Len for SettingsPayload {
     fn binary_len(&self) -> usize {
         self.settings.len() * 6
     }
 }
 
-impl len for PushPromisePayload {
+impl Len for PushPromisePayload {
     fn binary_len(&self) -> usize {
         let mut result: usize = 0;
         if self.PadLength.is_some() {
@@ -512,31 +512,31 @@ impl len for PushPromisePayload {
     }
 }
 
-impl len for PingPayload {
+impl Len for PingPayload {
     fn binary_len(&self) -> usize {
         8
     }
 }
 
-impl len for GoAwayPayload {
+impl Len for GoAwayPayload {
     fn binary_len(&self) -> usize {
         8 + self.AdditionalData.len()
     }
 }
 
-impl len for WindowUpdatePayload {
+impl Len for WindowUpdatePayload {
     fn binary_len(&self) -> usize {
         4
     }
 }
 
-impl len for ContinuationPayload {
+impl Len for ContinuationPayload {
     fn binary_len(&self) -> usize {
         self.HeaderBlockFragment.binary_len()
     }
 }
 
-impl len for Payload {
+impl Len for Payload {
     fn binary_len(&self) -> usize {
         match self {
             Payload::Data(d) => d.binary_len(),
