@@ -19,6 +19,24 @@ pub enum FromBytesError {
     ParseIntError(std::num::ParseIntError),
 }
 
+impl From<std::num::ParseIntError>  for FromBytesError {
+    fn from(value: std::num::ParseIntError) -> Self {
+        FromBytesError::ParseIntError(value)
+    }
+}
+
+impl From<std::string::FromUtf8Error>  for FromBytesError {
+    fn from(value: std::string::FromUtf8Error) -> Self {
+        FromBytesError::Utf8Error(value)
+    }
+}
+
+impl From<std::io::Error>  for FromBytesError {
+    fn from(value: std::io::Error) -> Self {
+        FromBytesError::IoError(value)
+    }
+}
+
 pub trait FromBytes<T> {
     fn from(value: Vec<u8>, flags: u8) -> Result<T, FromBytesError>;
 }
