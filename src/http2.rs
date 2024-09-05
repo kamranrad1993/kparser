@@ -1,18 +1,18 @@
 pub mod frame;
 pub mod hpack;
 pub mod huffman;
+pub mod message;
 pub mod payload;
 pub mod payload_flags;
-pub mod Message;
 
 use std::str::FromStr;
 
 pub use frame::*;
 pub use hpack::*;
 pub use huffman::*;
+pub use message::*;
 pub use payload::*;
 pub use payload_flags::*;
-pub use Message::*;
 
 trait len {
     fn binary_len(&self) -> usize;
@@ -51,7 +51,7 @@ impl Http2Pri {
 
 #[cfg(test)]
 mod tests {
-    use crate::u24::u24;
+    use crate::{u24::u24, u31::u31};
     use std::{
         io::{Read, Write},
         net::{TcpListener, TcpStream},
@@ -138,7 +138,8 @@ mod tests {
             length: u24::new(settings.binary_len() as u32),
             frame_type: FrameType::Settings,
             flags: 0,
-            stream_id: 0,
+            reserved: false,
+            stream_id: u31::new(0),
             payload: Payload::Settings(settings),
         };
         let settings_frame: Vec<u8> = settings_frame.into();
@@ -157,12 +158,10 @@ mod tests {
         let headers_frame = Frame {
             length: headers_res_len,
             frame_type: FrameType::Headers,
-            flags: 0u8
-                | HeadersPayloadFlag::END_HEADERS
-                // | HeadersPayloadFlag::END_STREAM
-                // | HeadersPayloadFlag::PRIORITY
-                ,
-            stream_id: 13,
+            flags: 0u8 | HeadersPayloadFlag::END_HEADERS, // | HeadersPayloadFlag::END_STREAM
+                                                          // | HeadersPayloadFlag::PRIORITY
+            reserved: false,
+            stream_id: 13.into(),
             payload: Payload::Headers(headers_payload),
         };
         let headers_frame: Vec<u8> = headers_frame.into();
@@ -180,7 +179,8 @@ mod tests {
             length: data_res_len,
             frame_type: FrameType::Data,
             flags: 0 | DataPayloadFlag::END_STREAM,
-            stream_id: 2,
+            reserved: false,
+            stream_id: 2.into(),
             payload: Payload::Data(payload_res),
         };
         let res: Vec<u8> = frame_res.into();

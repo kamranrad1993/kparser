@@ -1,8 +1,20 @@
 use std::{clone, fmt::Display, result, vec};
 
-use crate::{http2::payload, u24::u24};
+use crate::{http2::payload, u24::u24, u31::u31};
 
-use super::{len, payload::Payload};
+use super::{len, payload::Payload, FromBytesError};
+
+pub enum FrameParseError {
+    InsufficentLength,
+    InsufficentPayloadLength,
+    PayloadParseError(FromBytesError)
+}
+
+impl From<FromBytesError> for FrameParseError {
+    fn from(value: FromBytesError) -> Self {
+        FrameParseError::PayloadParseError(value)
+    }
+}
 
 #[derive(Debug)]
 pub enum FrameType {
@@ -21,10 +33,11 @@ pub enum FrameType {
 
 #[derive(Debug)]
 pub struct Frame {
-    pub length: u24,
-    pub frame_type: FrameType,
+    pub length: u24, 
+    pub frame_type: FrameType, 
     pub flags: u8,
-    pub stream_id: u32,
+    pub reserved: bool,
+    pub stream_id: u31,
     pub payload: Payload,
 }
 
@@ -71,7 +84,7 @@ impl Into<Vec<u8>> for Frame {
         result.extend(self.length.to_bytes());
         result.push(self.frame_type.into());
         result.push(self.flags);
-        result.extend((self.stream_id & 0x7FFF_FFFF).to_be_bytes());
+        result.extend((self.stream_id.to_u32() | ((self.reserved as u32) << 31)).to_be_bytes());
         result.extend(<Payload as Into<Vec<u8>>>::into(self.payload));
         result
     }
@@ -99,14 +112,13 @@ impl From<Vec<u8>> for Frame {
     fn from(value: Vec<u8>) -> Self {
         let length: [u8; 3] = value[0..3].try_into().unwrap();
         let length = u24::from_bytes(length);
-        let length_2 = length.to_u32();
-        
+
         let frame_type = FrameType::from(value[3]);
         let flags = value[4];
 
         let stream_id: [u8; 4] = value[5..9].try_into().unwrap();
-        let mut stream_id = u32::from_be_bytes(stream_id);
-        stream_id = stream_id & 0x7FFF_FFFF;
+        let reserved = (u32::from_be_bytes(stream_id) & 0x80000000) == 0x80000000;
+        let stream_id = u31::from_bytes(stream_id);
 
         let payload = Payload::from(
             value[9..(9 + length.to_u32() as usize)].to_vec(),
@@ -119,6 +131,7 @@ impl From<Vec<u8>> for Frame {
             length,
             frame_type,
             flags,
+            reserved,
             stream_id,
             payload,
         }
@@ -146,5 +159,44 @@ impl Clone for FrameType {
 impl len for Frame {
     fn binary_len(&self) -> usize {
         9 + self.payload.binary_len()
+    }
+}
+
+impl TryFrom<&[u8]> for Frame {
+    type Error = FrameParseError;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        if value.len() < 9 {
+            return Err(FrameParseError::InsufficentLength); // Example error handling
+        }
+
+        let length: [u8; 3] = value[0..3].try_into().unwrap();
+        let length = u24::from_bytes(length);
+
+        let frame_type = FrameType::from(value[3]);
+        let flags = value[4];
+
+        let stream_id: [u8; 4] = value[5..9].try_into().unwrap();
+        let reserved = (u32::from_be_bytes(stream_id) & 0x80000000) == 0x80000000;
+        let stream_id = u31::from_bytes(stream_id);
+
+        let payload_start = 9;
+        let payload_end = payload_start + length.to_u32() as usize;
+
+        if value.len() < payload_end {
+            return Err(FrameParseError::InsufficentPayloadLength);
+        }
+
+        let payload_data = value[payload_start..payload_end].to_vec();
+        let payload = Payload::from(payload_data, flags, frame_type.clone())?;
+
+        Ok(Self {
+            length,
+            frame_type,
+            flags,
+            reserved,
+            stream_id,
+            payload,
+        })
     }
 }

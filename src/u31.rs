@@ -140,8 +140,20 @@ impl From<u31> for u64 {
     }
 }
 
+impl From<i32> for u31{
+    fn from(value: i32) -> Self {
+        u31::new(value as u32)
+    }
+}
+
 impl Into<Vec<u8>> for u31 {
     fn into(self) -> Vec<u8> {
         self.0.to_be_bytes().to_vec()
+    }
+}
+
+impl Into<u32> for u31 {
+    fn into(self) -> u32 {
+        self.to_u32()
     }
 }

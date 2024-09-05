@@ -125,7 +125,7 @@ impl Into<Vec<u8>> for DataPayload {
 impl Into<Vec<u8>> for PriorityPayload {
     fn into(self) -> Vec<u8> {
         let mut result = Vec::new();
-        let c = ((self.ExclusiveFlag as u32) << 31) & self.StreamDependency.to_u32();
+        let c = ((self.ExclusiveFlag as u32) << 31) | self.StreamDependency.to_u32();
         result.extend(c.to_be_bytes());
         result.push(self.Weight);
         result
@@ -261,9 +261,10 @@ impl FromBytes<DataPayload> for DataPayload {
 impl FromBytes<PriorityPayload> for PriorityPayload {
     fn from(value: Vec<u8>, flag: u8) -> Result<Self, FromBytesError> {
         let b32: [u8; 4] = value[0..4].try_into().unwrap();
+        let exclusive_flag = (u32::from_be_bytes(b32)& 0x80000000) == 0x80000000;
         let stream_dependency = u31::from_bytes(b32);
         Ok(PriorityPayload {
-            ExclusiveFlag: (stream_dependency.to_u32() & 0x80000000) == 0x80000000,
+            ExclusiveFlag: exclusive_flag,
             StreamDependency: stream_dependency,
             Weight: value[4],
         })
