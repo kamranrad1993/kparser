@@ -2,7 +2,7 @@ use std::{
     fmt, hash::Hash, ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Not, Rem, Shl, Shr, Sub}
 };
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash)]
 pub struct u31(u32);
 
 impl u31 {
@@ -157,8 +157,8 @@ impl Into<u32> for u31 {
     }
 }
 
-impl Hash for u31 {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.to_u32().hash(state);
-    }
-}
+// impl Hash for u31 {
+//     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+//         self.to_u32().hash(state);
+//     }
+// }
