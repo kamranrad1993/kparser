@@ -60,7 +60,7 @@ mod tests {
 
     use super::*;
 
-    fn read_frame(buf: Vec<u8>) -> usize {
+    fn read_frame(buf: Vec<u8>, context: &mut HpackContext) -> usize {
         let mut frame = <Frame as From<Vec<u8>>>::from(buf);
         let len = frame.binary_len();
         println!("frame type : {}", frame.frame_type);
@@ -74,7 +74,7 @@ mod tests {
             }
             Payload::Headers(headers) => {
                 println!("Headers: ");
-                for i in headers.HeaderBlockFragment.decode().unwrap() {
+                for i in headers.HeaderBlockFragment.decode(context).unwrap() {
                     let key = String::from_utf8_lossy(&i.0);
                     let value = String::from_utf8_lossy(&i.1);
 
@@ -105,13 +105,13 @@ mod tests {
         buf = buf[0..size].to_vec();
 
         let pri = Http2Pri::read_and_remove(&mut buf).unwrap();
-
+        let mut context = HpackContext::new(4096);
         let mut buf_index = 0;
         loop {
             if buf_index >= buf.len() {
                 break;
             }
-            let frame_len = read_frame(buf[buf_index..].to_vec());
+            let frame_len = read_frame(buf[buf_index..].to_vec(), &mut context);
             buf_index += frame_len;
         }
 
@@ -145,8 +145,9 @@ mod tests {
         let settings_frame: Vec<u8> = settings_frame.into();
         tcp_stream.write(settings_frame.as_slice()).unwrap();
 
-        let mut hpack = Hpack::new(10);
-        hpack.encode(&headers);
+        let mut hpack = Hpack::new();
+        
+        hpack.encode(&headers, &mut context);
 
         let headers_payload = HeadersPayload {
             PadLength: None,

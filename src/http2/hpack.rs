@@ -332,25 +332,23 @@ pub fn decode_headers(
 
 #[derive(Debug, Clone)]
 pub struct Hpack {
-    context: HpackContext,
     encoded: Vec<u8>,
 }
 
 impl Hpack {
-    pub fn new(max_size: usize) -> Self {
+    pub fn new() -> Self {
         Hpack {
-            context: HpackContext::new(max_size),
             encoded: Vec::new(),
         }
     }
 
-    pub fn encode(&mut self, headers: &[(Vec<u8>, Vec<u8>)]) -> &[u8] {
-        self.encoded = encode_headers(headers, &mut self.context);
+    pub fn encode(&mut self, headers: &[(Vec<u8>, Vec<u8>)], context: &mut HpackContext) -> &[u8] {
+        self.encoded = encode_headers(headers, context);
         &self.encoded
     }
 
-    pub fn decode(&mut self) -> Result<Vec<(Vec<u8>, Vec<u8>)>, HpackError> {
-        decode_headers(&self.encoded, &mut self.context)
+    pub fn decode(&mut self, context: &mut HpackContext) -> Result<Vec<(Vec<u8>, Vec<u8>)>, HpackError> {
+        decode_headers(&self.encoded, context)
     }
 
     pub fn encoded_size(&self) -> usize {
@@ -360,7 +358,7 @@ impl Hpack {
 
 impl From<Vec<u8>> for Hpack {
     fn from(data: Vec<u8>) -> Self {
-        let mut hpack = Hpack::new(4096); // Default max size
+        let mut hpack = Hpack::new(); // Default max size
         hpack.encoded = data;
         hpack
     }
