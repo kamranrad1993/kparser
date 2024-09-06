@@ -135,6 +135,20 @@ impl HpackContext {
     fn find_name(&self, name: &[u8]) -> Option<usize> {
         self.name_to_index.get(name).cloned()
     }
+
+    pub fn resize(&mut self, new_size: usize) {
+        if new_size < self.max_dynamic_table_size {
+            while self.dynamic_table_size > new_size {
+                if let Some((old_name, old_value)) = self.dynamic_table.pop_back() {
+                    self.dynamic_table_size -= old_name.len() + old_value.len() + 32;
+                    self.name_to_index.remove(&old_name);
+                } else {
+                    break;
+                }
+            }
+        }
+        self.max_dynamic_table_size = new_size;
+    }
 }
 
 fn encode_integer(value: usize, prefix_size: u8) -> Vec<u8> {
@@ -363,4 +377,3 @@ impl Len for Hpack {
         self.encoded_size()
     }
 }
-
