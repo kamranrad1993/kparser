@@ -252,9 +252,10 @@ pub fn encode_headers(headers: &[(Vec<u8>, Vec<u8>)], context: &mut HpackContext
 pub fn decode_headers(
     data: &[u8],
     context: &mut HpackContext,
-) -> Result<Vec<(Vec<u8>, Vec<u8>)>, HpackError> {
+) -> Result<(Vec<(Vec<u8>, Vec<u8>)>, usize), HpackError> {
     let mut headers = Vec::new();
     let mut offset = 0;
+    let mut decompressed_size = 0;
 
     while offset < data.len() {
         let first_byte = data[offset];
@@ -273,6 +274,7 @@ pub fn decode_headers(
                     .ok_or(HpackError::InvalidIndex)?
                     .clone()
             };
+            decompressed_size += name.len() + value.len() + 32;
             headers.push((name, value));
         } else if first_byte & 0x40 != 0 {
             // Literal Header Field with Incremental Indexing
@@ -296,6 +298,7 @@ pub fn decode_headers(
             let (value, consumed) = decode_string(&data[offset..])?;
             offset += consumed;
             context.add_header(name.clone(), value.clone());
+            decompressed_size += name.len() + value.len() + 32;
             headers.push((name, value));
         } else if first_byte & 0x20 != 0 {
             // Dynamic Table Size Update
@@ -323,11 +326,12 @@ pub fn decode_headers(
             };
             let (value, consumed) = decode_string(&data[offset..])?;
             offset += consumed;
+            decompressed_size += name.len() + value.len() + 32;
             headers.push((name, value));
         }
     }
 
-    Ok(headers)
+    Ok((headers, decompressed_size))
 }
 
 #[derive(Debug, Clone)]
@@ -347,7 +351,10 @@ impl Hpack {
         &self.encoded
     }
 
-    pub fn decode(&mut self, context: &mut HpackContext) -> Result<Vec<(Vec<u8>, Vec<u8>)>, HpackError> {
+    pub fn decode(
+        &mut self,
+        context: &mut HpackContext,
+    ) -> Result<(Vec<(Vec<u8>, Vec<u8>)>,usize), HpackError> {
         decode_headers(&self.encoded, context)
     }
 

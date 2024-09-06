@@ -74,7 +74,7 @@ mod tests {
             }
             Payload::Headers(headers) => {
                 println!("Headers: ");
-                for i in headers.HeaderBlockFragment.decode(context).unwrap() {
+                for i in headers.HeaderBlockFragment.decode(context).unwrap().0 {
                     let key = String::from_utf8_lossy(&i.0);
                     let value = String::from_utf8_lossy(&i.1);
 
