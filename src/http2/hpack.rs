@@ -12,6 +12,18 @@ pub enum HpackError {
     HuffmanEncodingError,
 }
 
+impl From<httlib_huffman::EncoderError> for HpackError{
+    fn from(value: httlib_huffman::EncoderError) -> Self {
+        HpackError::HuffmanEncodingError
+    }
+}
+
+impl From<httlib_huffman::DecoderError> for HpackError{
+    fn from(value: httlib_huffman::DecoderError) -> Self {
+        HpackError::HuffmanDecodingError
+    }
+}
+
 const STATIC_TABLE: [(&str, &str); 61] = [
     (":authority", ""),
     (":method", "GET"),
@@ -190,7 +202,8 @@ fn encode_string(s: &[u8], use_huffman: bool) -> Result<Vec<u8>, HpackError> {
     let mut encoded = Vec::new();
     if use_huffman {
         // return Err(HpackError::HuffmanEncodingError);
-        encoded = huffman_encode(s);
+        // encoded = huffman_encode(s);
+        httlib_huffman::encode(s, &mut encoded)?;
     } else {
         let mut length = encode_integer(s.len(), 7);
         length[0] &= !0x80; // Clear the Huffman bit
@@ -211,7 +224,10 @@ fn decode_string(data: &[u8]) -> Result<(Vec<u8>, usize), HpackError> {
 
     let result = if huffman {
         // return Err(HpackError::HuffmanDecodingError);
-        huffman_decode(string_data).unwrap()
+        // huffman_decode(string_data).unwrap()
+        let mut result = Vec::new();
+        httlib_huffman::decode(string_data, &mut result, httlib_huffman::DecoderSpeed::FiveBits)?;
+        result
     } else {
         string_data.to_vec()
     };
