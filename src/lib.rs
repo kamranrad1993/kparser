@@ -5,6 +5,7 @@ pub mod u24;
 pub mod http2;
 pub use http2::Http2Pri;
 
+pub mod http;
 
 
 #[cfg(test)]
