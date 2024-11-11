@@ -15,7 +15,7 @@ impl u24 {
     }
 
     pub fn to_u32(self) -> u32 {
-        (self.0[0] as u32) << 16 | ((self.0[1] as u32) << 8) | ((self.0[2] as u32))
+        (self.0[0] as u32) << 16 | ((self.0[1] as u32) << 8) | (self.0[2] as u32)
     }
 
     pub fn to_bytes(self) -> [u8; 3] {
@@ -120,7 +120,6 @@ impl fmt::Display for u24 {
         write!(f, "{}", self.to_u32())
     }
 }
-
 
 impl From<u64> for u24 {
     fn from(value: u64) -> Self {

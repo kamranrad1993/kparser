@@ -5,8 +5,8 @@ use crate::u31::u31;
 use super::{
     frame::FrameType,
     hpack::{self, Hpack},
-    Len,
     payload_flags::{DataPayloadFlag, HeadersPayloadFlag, PushPromisePayloadFlag},
+    Len,
 };
 
 #[derive(Debug)]
@@ -19,19 +19,19 @@ pub enum FromBytesError {
     ParseIntError(std::num::ParseIntError),
 }
 
-impl From<std::num::ParseIntError>  for FromBytesError {
+impl From<std::num::ParseIntError> for FromBytesError {
     fn from(value: std::num::ParseIntError) -> Self {
         FromBytesError::ParseIntError(value)
     }
 }
 
-impl From<std::string::FromUtf8Error>  for FromBytesError {
+impl From<std::string::FromUtf8Error> for FromBytesError {
     fn from(value: std::string::FromUtf8Error) -> Self {
         FromBytesError::Utf8Error(value)
     }
 }
 
-impl From<std::io::Error>  for FromBytesError {
+impl From<std::io::Error> for FromBytesError {
     fn from(value: std::io::Error) -> Self {
         FromBytesError::IoError(value)
     }
@@ -279,7 +279,7 @@ impl FromBytes<DataPayload> for DataPayload {
 impl FromBytes<PriorityPayload> for PriorityPayload {
     fn from(value: Vec<u8>, flag: u8) -> Result<Self, FromBytesError> {
         let b32: [u8; 4] = value[0..4].try_into().unwrap();
-        let exclusive_flag = (u32::from_be_bytes(b32)& 0x80000000) == 0x80000000;
+        let exclusive_flag = (u32::from_be_bytes(b32) & 0x80000000) == 0x80000000;
         let stream_dependency = u31::from_bytes(b32);
         Ok(PriorityPayload {
             ExclusiveFlag: exclusive_flag,

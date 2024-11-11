@@ -1,7 +1,6 @@
 use std::collections::{HashMap, VecDeque};
-use std::convert::TryFrom;
 
-use super::{huffman_decode, huffman_encode, Len};
+use super::Len;
 
 #[derive(Debug)]
 pub enum HpackError {
@@ -12,13 +11,13 @@ pub enum HpackError {
     HuffmanEncodingError,
 }
 
-impl From<httlib_huffman::EncoderError> for HpackError{
+impl From<httlib_huffman::EncoderError> for HpackError {
     fn from(value: httlib_huffman::EncoderError) -> Self {
         HpackError::HuffmanEncodingError
     }
 }
 
-impl From<httlib_huffman::DecoderError> for HpackError{
+impl From<httlib_huffman::DecoderError> for HpackError {
     fn from(value: httlib_huffman::DecoderError) -> Self {
         HpackError::HuffmanDecodingError
     }
@@ -226,7 +225,11 @@ fn decode_string(data: &[u8]) -> Result<(Vec<u8>, usize), HpackError> {
         // return Err(HpackError::HuffmanDecodingError);
         // huffman_decode(string_data).unwrap()
         let mut result = Vec::new();
-        httlib_huffman::decode(string_data, &mut result, httlib_huffman::DecoderSpeed::FiveBits)?;
+        httlib_huffman::decode(
+            string_data,
+            &mut result,
+            httlib_huffman::DecoderSpeed::FiveBits,
+        )?;
         result
     } else {
         string_data.to_vec()
@@ -370,7 +373,7 @@ impl Hpack {
     pub fn decode(
         &mut self,
         context: &mut HpackContext,
-    ) -> Result<(Vec<(Vec<u8>, Vec<u8>)>,usize), HpackError> {
+    ) -> Result<(Vec<(Vec<u8>, Vec<u8>)>, usize), HpackError> {
         decode_headers(&self.encoded, context)
     }
 

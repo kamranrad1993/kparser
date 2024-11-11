@@ -1,13 +1,13 @@
-use std::{clone, fmt::Display, result, vec};
+use std::fmt::Display;
 
-use crate::{http2::payload, u24::u24, u31::u31};
+use crate::{u24::u24, u31::u31};
 
-use super::{Len, payload::Payload, FromBytesError};
+use super::{payload::Payload, FromBytesError, Len};
 
 pub enum FrameParseError {
     InsufficentLength,
     InsufficentPayloadLength,
-    PayloadParseError(FromBytesError)
+    PayloadParseError(FromBytesError),
 }
 
 impl From<FromBytesError> for FrameParseError {
@@ -33,8 +33,8 @@ pub enum FrameType {
 
 #[derive(Debug)]
 pub struct Frame {
-    pub length: u24, 
-    pub frame_type: FrameType, 
+    pub length: u24,
+    pub frame_type: FrameType,
     pub flags: u8,
     pub reserved: bool,
     pub stream_id: u31,

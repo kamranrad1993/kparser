@@ -146,7 +146,7 @@ mod tests {
         tcp_stream.write(settings_frame.as_slice()).unwrap();
 
         let mut hpack = Hpack::new();
-        
+
         hpack.encode(&headers, &mut context);
 
         let headers_payload = HeadersPayload {
@@ -160,7 +160,7 @@ mod tests {
             length: headers_res_len,
             frame_type: FrameType::Headers,
             flags: 0u8 | HeadersPayloadFlag::END_HEADERS, // | HeadersPayloadFlag::END_STREAM
-                                                          // | HeadersPayloadFlag::PRIORITY
+            // | HeadersPayloadFlag::PRIORITY
             reserved: false,
             stream_id: 13.into(),
             payload: Payload::Headers(headers_payload),

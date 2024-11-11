@@ -1,5 +1,7 @@
 use std::{
-    fmt, hash::Hash, ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Not, Rem, Shl, Shr, Sub}
+    fmt,
+    hash::Hash,
+    ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Not, Rem, Shl, Shr, Sub},
 };
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash)]
@@ -139,7 +141,7 @@ impl From<u31> for u64 {
     }
 }
 
-impl From<i32> for u31{
+impl From<i32> for u31 {
     fn from(value: i32) -> Self {
         u31::new(value as u32)
     }

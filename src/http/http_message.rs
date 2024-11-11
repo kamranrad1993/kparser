@@ -15,7 +15,7 @@ pub enum RequestMethod {
 pub struct RequestStartLine {
     pub method: RequestMethod,
     pub path: String,
-    pub version: String
+    pub version: String,
 }
 
 pub struct HttpRequest {
@@ -26,7 +26,7 @@ pub struct HttpRequest {
 pub struct ResponseStartLine {
     pub version: String,
     pub response_code: u32,
-    pub response_msg: String
+    pub response_msg: String,
 }
 
 pub struct HttpResponse {
@@ -34,8 +34,7 @@ pub struct HttpResponse {
     pub headers: HashMap<String, String>,
 }
 
-pub enum HttpMessage{
+pub enum HttpMessage {
     Request(HttpRequest),
-    Response(HttpResponse)
+    Response(HttpResponse),
 }
-

@@ -23,7 +23,7 @@ pub mod PushPromisePayloadFlag {
     pub const END_HEADERS: u8 = 0x01;
 }
 
-pub mod PingPayloadFlag{
+pub mod PingPayloadFlag {
     pub const ACK: u8 = 0x01;
 }
 
@@ -47,4 +47,3 @@ pub mod ContinuationPayloadFlag {
 //     wINDOW_UPDATE(u8),
 //     CONTINUATION(u8),
 // }
-
