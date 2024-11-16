@@ -1,8 +1,9 @@
+use std::collections::HashMap;
 use std::str::FromStr;
-use std::fmt;
+use std::fmt::{self, Display};
 
 #[derive(Debug)]
-struct ParseHeadersError(String);
+pub struct ParseHeadersError(String);
 
 impl fmt::Display for ParseHeadersError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -15,24 +16,24 @@ impl std::error::Error for ParseHeadersError {}
 macro_rules! define_headers {
     ($($variant:ident => $name:expr),*) => {
         #[derive(Debug)]
-        pub enum Headers {
+        pub enum StandardHeaders {
             $($variant),*
         }
 
-        impl ToString for Headers {
+        impl ToString for StandardHeaders {
             fn to_string(&self) -> String {
                 match self {
-                    $(Headers::$variant => $name.to_string()),*
+                    $(StandardHeaders::$variant => $name.to_string()),*
                 }
             }
         }
 
-        impl FromStr for Headers {
+        impl FromStr for StandardHeaders {
             type Err = ParseHeadersError;
 
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 match s {
-                    $($name => Ok(Headers::$variant),)*
+                    $($name => Ok(StandardHeaders::$variant),)*
                     _ => Err(ParseHeadersError(s.to_string())),
                 }
             }
@@ -55,6 +56,7 @@ define_headers! {
     Content_Disposition => "Content-Disposition",
     Content_Length => "Content-Length",
     Content_Type => "Content-Type",
+    Content_Transfer_Encoding=>"Content-Transfer-Encoding",
     Cookie => "Cookie",
     Date => "Date",
     Expect => "Expect",
@@ -86,20 +88,59 @@ define_headers! {
     // Add the rest as required
 }
 
+pub enum HeaderKey {
+    StandardHeader(StandardHeaders),
+    CustomHeader(String)
+}
+
+impl FromStr for HeaderKey {
+    type Err = ParseHeadersError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match StandardHeaders::from_str(s) {
+            Ok(standard_header) => {
+                Ok(HeaderKey::StandardHeader(standard_header))
+            },
+            Err(_) => {
+                Ok(HeaderKey::CustomHeader(s.to_string()))
+            },
+        }
+    }
+}
+
+impl Display for HeaderKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            HeaderKey::StandardHeader(standard_headers) => {
+                f.write_str(standard_headers.to_string().as_str())
+            },
+            HeaderKey::CustomHeader(custom_header) => {
+                f.write_str(&custom_header)
+            },
+        }
+    }
+}
+
+pub struct Header{
+    pub key: HeaderKey,
+    pub value: String
+}
+
 struct FileFieldFormData {
 
 }
 
 struct FormData {
     pub boundary : String,
-
+    pub headers: HashMap<HeaderKey, String>
+    pub data: Vec<u8>
 }
 
 pub struct Body {
     data: Vec<u8>,
 }
 
-impl Body {
-    pub fn get_form_data(&self, ) -> res
-}
+// impl Body {
+//     pub fn get_form_data(&self, ) -> res
+// }
 
