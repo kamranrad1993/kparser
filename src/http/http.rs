@@ -1,4 +1,4 @@
-use crate::Result;
+use crate::Result::{self, Err, Ok};
 use core::str;
 use std::collections::HashMap;
 use std::fmt::{self, Display};
@@ -35,8 +35,8 @@ macro_rules! define_headers {
 
             fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
                 match s {
-                    $($name => Ok(StandardHeaders::$variant),)*
-                    _ => Err(ParseHeadersError(s.to_string())),
+                    $($name => std::result::Result::Ok(StandardHeaders::$variant),)*
+                    _ => std::result::Result::Err(ParseHeadersError(s.to_string())),
                 }
             }
         }
@@ -102,8 +102,8 @@ impl FromStr for HeaderKey {
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match StandardHeaders::from_str(s) {
-            Ok(standard_header) => Ok(HeaderKey::StandardHeader(standard_header)),
-            Err(_) => Ok(HeaderKey::CustomHeader(CustomHeader { 0: s.to_string() })),
+            std::result::Result::Ok(standard_header) => std::result::Result::Ok(HeaderKey::StandardHeader(standard_header)),
+            std::result::Result::Err(_) => std::result::Result::Ok(HeaderKey::CustomHeader(CustomHeader { 0: s.to_string() })),
         }
     }
 }
@@ -130,13 +130,18 @@ impl Into<Vec<u8>> for HeaderKey {
     }
 }
 
-// pub trait Result<K,Y>(std::result::Result<K,Y>);
-
 impl Into<Result<HeaderKey, ParseHeadersError>> for Vec<u8> {
     fn into(self) -> Result<HeaderKey, ParseHeadersError> {
         // let s = String::from_utf8_lossy(self.as_slice());
-        let s = str::from_utf8(self.as_slice()).unwrap();
-        match StandardHeaders::from_str() {}
+        let s = match str::from_utf8(self.as_slice()) {
+            std::result::Result::Ok(s) => s,
+            std::result::Result::Err(e) => return Err(ParseHeadersError("Invalid utf-8".to_string())),
+        };
+        let result = match HeaderKey::from_str(s) {
+            std::result::Result::Ok(result) => result,
+            std::result::Result::Err(e) => unreachable!(),
+        };
+        Ok(result)
     }
 }
 
