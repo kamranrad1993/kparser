@@ -1,6 +1,8 @@
+use crate::Result;
+use core::str;
 use std::collections::HashMap;
-use std::str::FromStr;
 use std::fmt::{self, Display};
+use std::str::FromStr;
 
 #[derive(Debug)]
 pub struct ParseHeadersError(String);
@@ -31,7 +33,7 @@ macro_rules! define_headers {
         impl FromStr for StandardHeaders {
             type Err = ParseHeadersError;
 
-            fn from_str(s: &str) -> Result<Self, Self::Err> {
+            fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
                 match s {
                     $($name => Ok(StandardHeaders::$variant),)*
                     _ => Err(ParseHeadersError(s.to_string())),
@@ -88,22 +90,20 @@ define_headers! {
     // Add the rest as required
 }
 
+// pub type CustomHeader = String;
+pub struct CustomHeader(String);
 pub enum HeaderKey {
     StandardHeader(StandardHeaders),
-    CustomHeader(String)
+    CustomHeader(CustomHeader),
 }
 
 impl FromStr for HeaderKey {
     type Err = ParseHeadersError;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match StandardHeaders::from_str(s) {
-            Ok(standard_header) => {
-                Ok(HeaderKey::StandardHeader(standard_header))
-            },
-            Err(_) => {
-                Ok(HeaderKey::CustomHeader(s.to_string()))
-            },
+            Ok(standard_header) => Ok(HeaderKey::StandardHeader(standard_header)),
+            Err(_) => Ok(HeaderKey::CustomHeader(CustomHeader { 0: s.to_string() })),
         }
     }
 }
@@ -113,27 +113,44 @@ impl Display for HeaderKey {
         match self {
             HeaderKey::StandardHeader(standard_headers) => {
                 f.write_str(standard_headers.to_string().as_str())
-            },
-            HeaderKey::CustomHeader(custom_header) => {
-                f.write_str(&custom_header)
-            },
+            }
+            HeaderKey::CustomHeader(custom_header) => f.write_str(&custom_header.0),
         }
     }
 }
 
-pub struct Header{
-    pub key: HeaderKey,
-    pub value: String
+impl Into<Vec<u8>> for HeaderKey {
+    fn into(self) -> Vec<u8> {
+        match self {
+            HeaderKey::StandardHeader(standard_headers) => {
+                standard_headers.to_string().as_bytes().to_vec()
+            }
+            HeaderKey::CustomHeader(custom_header) => custom_header.0.as_bytes().to_vec(),
+        }
+    }
 }
 
-struct FileFieldFormData {
+// pub trait Result<K,Y>(std::result::Result<K,Y>);
 
+impl Into<Result<HeaderKey, ParseHeadersError>> for Vec<u8> {
+    fn into(self) -> Result<HeaderKey, ParseHeadersError> {
+        // let s = String::from_utf8_lossy(self.as_slice());
+        let s = str::from_utf8(self.as_slice()).unwrap();
+        match StandardHeaders::from_str() {}
+    }
+}
+
+pub type HeaderValue = String;
+
+pub struct Header {
+    pub key: HeaderKey,
+    pub value: HeaderValue,
 }
 
 struct FormData {
-    pub boundary : String,
-    pub headers: HashMap<HeaderKey, String>
-    pub data: Vec<u8>
+    pub boundary: String,
+    pub headers: HashMap<HeaderKey, HeaderValue>,
+    pub data: Vec<u8>,
 }
 
 pub struct Body {
@@ -143,4 +160,3 @@ pub struct Body {
 // impl Body {
 //     pub fn get_form_data(&self, ) -> res
 // }
-

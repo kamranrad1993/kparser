@@ -15,3 +15,10 @@ mod tests {
     #[test]
     fn it_works() {}
 }
+
+
+#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Debug, Hash)]
+pub enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
