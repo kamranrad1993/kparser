@@ -2,6 +2,8 @@ use crate::Result::{self, Err, Ok};
 use core::str;
 use std::collections::HashMap;
 use std::fmt::{self, Display};
+use std::hash::Hash;
+use std::ops;
 use std::str::{FromStr, Utf8Error};
 
 #[derive(Debug)]
@@ -9,6 +11,17 @@ pub enum ParseHttpError {
     ParseHeaderError(String),
     ParseFormDataError(String),
     UnknownString(String),
+}
+
+impl PartialEq for ParseHttpError {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::ParseHeaderError(l0), Self::ParseHeaderError(r0)) => l0 == r0,
+            (Self::ParseFormDataError(l0), Self::ParseFormDataError(r0)) => l0 == r0,
+            (Self::UnknownString(l0), Self::UnknownString(r0)) => l0 == r0,
+            _ => false,
+        }
+    }
 }
 
 impl From<&str> for ParseHttpError {
@@ -54,6 +67,16 @@ macro_rules! define_headers {
                     $($name => std::result::Result::Ok(StandardHeaders::$variant),)*
                     _ => std::result::Result::Err(ParseHttpError::ParseHeaderError(s.to_string())),
                 }
+            }
+        }
+
+        impl PartialEq for StandardHeaders {
+            fn eq(&self, other: &Self) -> bool {
+                matches!(self, other)
+                // match (self, other) {
+                //     $((Self::$variant(l0), Self::$variant(r0)) => l0 == r0,)*
+                //     _ => false,
+                // }
             }
         }
     };
@@ -107,6 +130,12 @@ define_headers! {
 }
 
 pub struct CustomHeader(String);
+impl PartialEq for CustomHeader {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
 pub enum HeaderKey {
     StandardHeader(StandardHeaders),
     CustomHeader(CustomHeader),
@@ -171,6 +200,26 @@ impl Into<Result<HeaderKey, ParseHttpError>> for String {
         Ok(result)
     }
 }
+impl Into<Result<HeaderKey, ParseHttpError>> for &[u8] {
+    fn into(self) -> Result<HeaderKey, ParseHttpError> {
+        Into::<Result<HeaderKey, ParseHttpError>>::into(self.to_vec())
+    }
+}
+impl Hash for HeaderKey {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+    }
+}
+impl PartialEq for HeaderKey {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::StandardHeader(l0), Self::StandardHeader(r0)) => l0 == r0,
+            (Self::CustomHeader(l0), Self::CustomHeader(r0)) => l0 == r0,
+            _ => false,
+        }
+    }
+}
+impl std::cmp::Eq for HeaderKey {}
 
 pub struct HeaderValue(String);
 impl Into<Vec<u8>> for HeaderValue {
@@ -187,8 +236,15 @@ impl Into<Result<HeaderValue, ParseHttpError>> for Vec<u8> {
     fn into(self) -> Result<HeaderValue, ParseHttpError> {
         match String::from_utf8(self) {
             std::result::Result::Ok(value) => Ok(HeaderValue { 0: value }),
-            std::result::Result::Err(e) => Err(ParseHttpError::ParseHeaderError("Invalid utf-8 Value".to_string())),
+            std::result::Result::Err(e) => Err(ParseHttpError::ParseHeaderError(
+                "Invalid utf-8 Value".to_string(),
+            )),
         }
+    }
+}
+impl Into<Result<HeaderValue, ParseHttpError>> for &[u8] {
+    fn into(self) -> Result<HeaderValue, ParseHttpError> {
+        Into::<Result<HeaderValue, ParseHttpError>>::into(self.to_vec())
     }
 }
 
@@ -231,9 +287,16 @@ impl Into<Result<Header, ParseHttpError>> for Vec<u8> {
             std::result::Result::Err(e) => return Err(e),
         };
 
-        let value: Result<HeaderValue, ParseHttpError> = data_str[separate_index + 1..].to_string().into()?;
+        let value = Into::<Result<HeaderValue, ParseHttpError>>::into(
+            data_str[separate_index + 1..].to_string(),
+        )?;
 
         Ok(Header { key, value })
+    }
+}
+impl Into<Result<Header, ParseHttpError>> for &[u8] {
+    fn into(self) -> Result<Header, ParseHttpError> {
+        Into::<Result<Header, ParseHttpError>>::into(self.to_vec())
     }
 }
 
@@ -308,7 +371,10 @@ impl FormData {
                     //         ))
                     //     }
                     // };
-                    headers.insert(key.into(), value);
+                    headers.insert(
+                        Into::<Result<HeaderKey, ParseHttpError>>::into(key)?,
+                        Into::<Result<HeaderValue, ParseHttpError>>::into(value)?
+                    );
                 }
             }
 

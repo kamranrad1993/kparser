@@ -1,10 +1,11 @@
-#![feature(try_trait_v2_residual)]
-#![allow(try_trait_v2_residual)]pub mod u24;
+#![feature(try_trait_v2_residual, try_trait_v2)]
+#![allow(try_trait_v2_residual)]
+pub mod u24;
 pub mod u31;
 
 pub mod http2;
 
-use std::ops;
+use std::{convert, ops::{self, ControlFlow, FromResidual, Residual, Try}};
 
 pub use http2::Http2Pri;
 
@@ -41,7 +42,30 @@ impl<T, E> From<std::result::Result<T, E>> for Result<T, E> {
         }
     }
 }
-#[unstable(feature = "try_trait_v2_residual", issue = "91285")]
-impl<T, E> ops::Residual<T> for Result<T, E> {
-    type TryType = Result<T, E>;
+
+impl<T, E> std::ops::Try for Result<T, E> {
+    type Output = T;
+    type Residual = Result<core::convert::Infallible, E>;
+
+    fn from_output(output: Self::Output) -> Self {
+        Self::Ok(output)
+    }
+
+    fn branch(self) -> ControlFlow<Self::Residual, Self::Output> {
+        match self {
+            Self::Ok(value) => ControlFlow::Continue(value),
+            Self::Err(err) => ControlFlow::Break(Result::Err(err)),
+        }
+    }
+}
+impl<T, E, F> std::ops::FromResidual<Result<core::convert::Infallible, F>> for Result<T, E>
+where
+    E: From<F>,
+{
+    fn from_residual(residual: Result<core::convert::Infallible, F>) -> Self {
+        match residual {
+            Result::Err(err) => Result::Err(err.into()),
+            _ => unreachable!(),
+        }
+    }
 }
