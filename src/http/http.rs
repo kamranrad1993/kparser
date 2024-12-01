@@ -299,16 +299,15 @@ impl Into<Result<Header, ParseHttpError>> for &[u8] {
     }
 }
 
-pub struct FormData {
-    pub boundary: String,
-    pub sections: Vec<FormDataSection>,
-}
-
 pub struct FormDataSection {
     pub headers: HashMap<HeaderKey, HeaderValue>,
     pub data: Vec<u8>,
 }
 
+pub struct FormData {
+    pub boundary: String,
+    pub sections: Vec<FormDataSection>,
+}
 impl FormData {
     pub fn parse(boundary: String, raw_data: Vec<u8>) -> Result<FormData, ParseHttpError> {
         let boundary_marker = format!("--{}", boundary);
