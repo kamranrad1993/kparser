@@ -3,7 +3,6 @@ use core::str;
 use std::collections::HashMap;
 use std::fmt::{self, Display};
 use std::hash::Hash;
-use std::ops;
 use std::str::{FromStr, Utf8Error};
 
 #[derive(Debug)]
@@ -31,7 +30,7 @@ impl From<&str> for ParseHttpError {
 }
 
 impl From<Utf8Error> for ParseHttpError {
-    fn from(residual: Utf8Error) -> Self {
+    fn from(_residual: Utf8Error) -> Self {
         ParseHttpError::UnknownString("Invalid Utf-8".to_string())
     }
 }
@@ -326,51 +325,26 @@ impl FormData {
         }
         parts.push(&raw_data[start..]); // Add the remaining part
 
-        let mut data = Vec::new();
-        let formdata_sections: Vec<FormDataSection> = Vec::new();
+        let mut formdata_sections: Vec<FormDataSection> = Vec::new();
 
         for part in parts {
             if part.is_empty() || part == b"--" {
                 continue; // Skip empty or terminating boundary
             }
             let body_separator = "\r\n\r\n".as_bytes();
-            let mut sections = part
+            let sections = part
                 .windows(body_separator.len())
                 .position(|chunk| chunk == body_separator)
                 .unwrap_or(part.len());
-            // let header_section = match sections.next(){
-            //     Some(header_section) => header_section,
-            //     None => "Missing header".as_bytes(),
-            // };
-            // let body_section = match sections.next(){
-            //     Some(body_section) => body_section,
-            //     None => "Missing body".as_bytes(),
-            // };
 
             let header_section = &part[0..sections];
             let body_section = &part[sections..part.len()];
 
-            let headers: HashMap<HeaderKey, HeaderValue> = HashMap::new();
+            let mut headers: HashMap<HeaderKey, HeaderValue> = HashMap::new();
             for line in header_section.split(|&b| b == b'\n') {
                 if let (key, value) =
                     line.split_at(line.iter().position(|&b| b == b':').unwrap_or(0))
                 {
-                    // let key = match str::from_utf8(key) {
-                    //     std::result::Result::Ok(key) => key,
-                    //     std::result::Result::Err(e) => {
-                    //         return Err(ParseHttpError::ParseHeaderError(
-                    //             "Invalid utf-8".to_string(),
-                    //         ))
-                    //     }
-                    // };
-                    // let value = match str::from_utf8(&value[1..]) {
-                    //     std::result::Result::Ok(value) => value,
-                    //     std::result::Result::Err(e) => {
-                    //         return Err(ParseHttpError::ParseHeaderError(
-                    //             "Invalid utf-8".to_string(),
-                    //         ))
-                    //     }
-                    // };
                     headers.insert(
                         Into::<Result<HeaderKey, ParseHttpError>>::into(key)?,
                         Into::<Result<HeaderValue, ParseHttpError>>::into(value)?
@@ -378,11 +352,18 @@ impl FormData {
                 }
             }
 
-            // Add body data
-            data.push(body_section.to_vec());
+            formdata_sections.push(
+                FormDataSection{
+                    headers,
+                    data: body_section.to_vec(),
+                }
+            );
         }
 
-        Ok(())
+        Ok(FormData{
+            boundary,
+            sections: formdata_sections
+        })
     }
 }
 
