@@ -303,6 +303,17 @@ pub struct FormDataSection {
     pub headers: HashMap<HeaderKey, HeaderValue>,
     pub data: Vec<u8>,
 }
+impl Into<Result<Vec<u8>, ParseHttpError>> for FormDataSection  {
+    fn into(self) -> Result<Vec<u8>, ParseHttpError> {
+        let mut result = Vec::new();
+        for (key, value) in self.headers {
+            result.append(key.into()?);
+            // result.append(": ".as_bytes().to_vec());
+        }
+
+        Ok(result)
+    }
+}
 
 pub struct FormData {
     pub boundary: String,
@@ -364,7 +375,17 @@ impl FormData {
             sections: formdata_sections
         })
     }
+
+    pub fn encode(&self) -> String{
+
+    }
 }
+impl Display for FormData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        todo!()
+    }
+}
+
 
 pub struct Body {
     data: Vec<u8>,
@@ -373,3 +394,24 @@ pub struct Body {
 // impl Body {
 //     pub fn get_form_data(&self, ) -> res
 // }
+
+
+#[cfg(test)]
+mod test {
+    use super::FormData;
+
+    #[test]
+    fn form_data_test_1() {
+        let boundary = "--AaB03x";
+        let data = "--AaB03x
+content-disposition: form-data; name=\"field1\"
+content-type: text/plain;charset=windows-1250
+content-transfer-encoding: quoted-printable
+
+Joe owes =80100.
+--AaB03x";
+        
+        let form = FormData::parse(boundary.to_string(), data.as_bytes().to_vec());
+
+    }
+}
