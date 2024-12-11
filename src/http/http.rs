@@ -1,5 +1,6 @@
 use crate::Result::{self, Err, Ok};
 use core::str;
+use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fmt::{self, Display};
 use std::hash::Hash;
@@ -303,14 +304,18 @@ pub struct FormDataSection {
     pub headers: HashMap<HeaderKey, HeaderValue>,
     pub data: Vec<u8>,
 }
-impl Into<Result<Vec<u8>, ParseHttpError>> for FormDataSection  {
+impl Into<Result<Vec<u8>, ParseHttpError>> for FormDataSection {
     fn into(self) -> Result<Vec<u8>, ParseHttpError> {
         let mut result = Vec::new();
         for (key, value) in self.headers {
-            result.append(key.into()?);
-            // result.append(": ".as_bytes().to_vec());
+            result.append(&mut Into::<Vec<u8>>::into(key));
+            result.append(&mut ": ".as_bytes().to_vec());
+            result.append(&mut Into::<Vec<u8>>::into(value));
+            result.append(&mut "\r\n".as_bytes().to_vec());
         }
-
+        result.append(&mut "\r\n\r\n".as_bytes().to_vec());
+        result.append(&mut self.data.clone());
+        result.append(&mut "\r\n".as_bytes().to_vec());
         Ok(result)
     }
 }
@@ -357,27 +362,30 @@ impl FormData {
                 {
                     headers.insert(
                         Into::<Result<HeaderKey, ParseHttpError>>::into(key)?,
-                        Into::<Result<HeaderValue, ParseHttpError>>::into(value)?
+                        Into::<Result<HeaderValue, ParseHttpError>>::into(value)?,
                     );
                 }
             }
 
-            formdata_sections.push(
-                FormDataSection{
-                    headers,
-                    data: body_section.to_vec(),
-                }
-            );
+            formdata_sections.push(FormDataSection {
+                headers,
+                data: body_section.to_vec(),
+            });
         }
 
-        Ok(FormData{
+        Ok(FormData {
             boundary,
-            sections: formdata_sections
+            sections: formdata_sections,
         })
     }
 
-    pub fn encode(&self) -> String{
-
+    pub fn encode(&self) -> Result<String, ParseHttpError> {
+        let s = *self.clone().borrow();
+        let l = String::from_utf8_lossy(Into::<Result<Vec<u8>, ParseHttpError>>::into(s)?.as_slice());
+        match l {
+            std::borrow::Cow::Borrowed(v) => Ok(v.to_string()),
+            std::borrow::Cow::Owned(v) => Ok(v),
+        }
     }
 }
 impl Display for FormData {
@@ -385,7 +393,16 @@ impl Display for FormData {
         todo!()
     }
 }
-
+impl Into<Result<Vec<u8>, ParseHttpError>> for FormData{
+    fn into(self) -> Result<Vec<u8>, ParseHttpError> {
+        let mut result = Vec::new();
+        for section in self.sections{
+            result.append(&mut self.boundary.clone().as_bytes().to_vec());
+            result.append(&mut Into::<Result<Vec<u8>, ParseHttpError>>::into(section)?.clone());
+        }
+        Ok(result)
+    }
+}
 
 pub struct Body {
     data: Vec<u8>,
@@ -394,7 +411,6 @@ pub struct Body {
 // impl Body {
 //     pub fn get_form_data(&self, ) -> res
 // }
-
 
 #[cfg(test)]
 mod test {
@@ -410,8 +426,7 @@ content-transfer-encoding: quoted-printable
 
 Joe owes =80100.
 --AaB03x";
-        
-        let form = FormData::parse(boundary.to_string(), data.as_bytes().to_vec());
 
+        let form = FormData::parse(boundary.to_string(), data.as_bytes().to_vec());
     }
 }
