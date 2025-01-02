@@ -330,16 +330,7 @@ pub struct FormDataSection {
 }
 impl Into<Result<Vec<u8>, ParseHttpError>> for FormDataSection {
     fn into(self) -> Result<Vec<u8>, ParseHttpError> {
-        let mut result = Vec::new();
-        for (key, value) in self.headers {
-            result.append(&mut Into::<Vec<u8>>::into(key));
-            result.append(&mut ": ".as_bytes().to_vec());
-            result.append(&mut Into::<Vec<u8>>::into(value));
-            result.append(&mut "\r\n".as_bytes().to_vec());
-        }
-        result.append(&mut "\r\n\r\n".as_bytes().to_vec());
-        result.append(&mut self.data.clone());
-        result.append(&mut "\r\n".as_bytes().to_vec());
+        let mut result = Into::<Result<Vec<u8>, ParseHttpError>>::into(&self)?;
         Ok(result)
     }
 }
@@ -348,13 +339,12 @@ impl Into<Result<Vec<u8>, ParseHttpError>> for &FormDataSection {
         let mut result = Vec::new();
         for (key, value) in &self.headers {
             result.append(&mut Into::<Vec<u8>>::into(key));
-            result.append(&mut ": ".as_bytes().to_vec());
+            // result.append(&mut " ".as_bytes().to_vec());
             result.append(&mut Into::<Vec<u8>>::into(value));
-            result.append(&mut "\r\n".as_bytes().to_vec());
+            // result.append(&mut "\r\n".as_bytes().to_vec());
         }
         result.append(&mut "\r\n\r\n".as_bytes().to_vec());
         result.append(&mut self.data.clone());
-        result.append(&mut "\r\n".as_bytes().to_vec());
         Ok(result)
     }
 }
@@ -365,7 +355,7 @@ pub struct FormData {
 }
 impl FormData {
     pub fn parse(boundary: String, raw_data: Vec<u8>) -> Result<FormData, ParseHttpError> {
-        let boundary_marker = format!("--{}", boundary);
+        let boundary_marker = format!("--{}\r\n", boundary);
         let boundary_marker_bytes = boundary_marker.as_bytes();
 
         let mut parts = Vec::new();
@@ -392,13 +382,16 @@ impl FormData {
                 .unwrap_or(part.len());
 
             let header_section = &part[0..sections];
-            let body_section = &part[sections..part.len()];
+            let body_section = &part[(sections + 4)..(part.len() - 2)];
+            let b = std::str::from_utf8(body_section).unwrap();
 
             let mut headers: HashMap<HeaderKey, HeaderValue> = HashMap::new();
             for line in header_section.split(|&b| b == b'\n') {
                 if let (key, value) =
                     line.split_at(line.iter().position(|&b| b == b':').unwrap_or(0))
                 {
+                    let h = std::str::from_utf8(key).unwrap();
+                    let v = std::str::from_utf8(value).unwrap();
                     headers.insert(
                         Into::<Result<HeaderKey, ParseHttpError>>::into(key)?,
                         Into::<Result<HeaderValue, ParseHttpError>>::into(value)?,
@@ -435,23 +428,25 @@ impl Display for FormData {
         }
     }
 }
-impl Into<Result<Vec<u8>, ParseHttpError>> for FormData{
+impl Into<Result<Vec<u8>, ParseHttpError>> for FormData {
     fn into(self) -> Result<Vec<u8>, ParseHttpError> {
-        let mut result = Vec::new();
-        for section in self.sections{
-            result.append(&mut self.boundary.clone().as_bytes().to_vec());
-            result.append(&mut Into::<Result<Vec<u8>, ParseHttpError>>::into(section)?.clone());
-        }
+        let result = Into::<Result<Vec<u8>, ParseHttpError>>::into(&self)?;
         Ok(result)
     }
 }
-impl Into<Result<Vec<u8>, ParseHttpError>> for &FormData{
+impl Into<Result<Vec<u8>, ParseHttpError>> for &FormData {
     fn into(self) -> Result<Vec<u8>, ParseHttpError> {
         let mut result = Vec::new();
-        for section in &self.sections{
+        for section in &self.sections {
+            result.append(&mut "--".as_bytes().to_vec());
             result.append(&mut self.boundary.clone().as_bytes().to_vec());
+            result.append(&mut "\r\n".as_bytes().to_vec());
             result.append(&mut Into::<Result<Vec<u8>, ParseHttpError>>::into(section)?.clone());
         }
+        result.append(&mut "--".as_bytes().to_vec());
+        // result.append(&mut self.boundary.clone().as_bytes().to_vec());
+        // result.append(&mut "--".as_bytes().to_vec());
+
         Ok(result)
     }
 }
@@ -471,19 +466,17 @@ mod test {
     #[test]
     fn form_data_test_1() {
         let boundary = "delimiter12345";
-        let data = "--delimiter12345
-Content-Disposition: form-data; name=\"field1\"
+        let data = "--delimiter12345\r\nContent-Disposition: form-data; name=\"field1\"\r\n\r\nvalue1\r\n--delimiter12345\r\nContent-Disposition: form-data; name=\"field2\"; filename=\"example.txt\"\r\n\r\nvalue2\r\n--delimiter12345--";
 
-value1
---delimiter12345
-Content-Disposition: form-data; name=\"field2\"; filename=\"example.txt\"
-
-value2
---delimiter12345--";
+        println!("{}", data);
+        println!("{}", "++++++++++++++++++++++++++");
 
         let form = FormData::parse(boundary.to_string(), data.as_bytes().to_vec());
         match form {
-            crate::Result::Ok(form) => println!("{}", form),
+            crate::Result::Ok(form) => {
+                println!("{}", form);
+                assert_eq!(form.to_string().as_str(), data);
+            }
             crate::Result::Err(error) => panic!("{}", error),
         }
     }
