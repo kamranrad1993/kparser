@@ -1,7 +1,7 @@
 use crate::Result::{self, Err, Ok};
 use std::{collections::hash_map::HashMap, result, str::FromStr, vec};
 
-use super::http::{Body, HeaderKey, HeaderValue, ParseHttpError};
+use super::http::{Body,Header, HeaderKey, HeaderValue, ParseHttpError};
 
 pub const VERSION: &str = "HTTP/1.1";
 pub enum RequestMethod {
@@ -93,12 +93,59 @@ pub struct HttpRequest {
 }
 impl Into<Result<Vec<u8>, ParseHttpError>> for HttpRequest {
     fn into(self) -> Result<Vec<u8>, ParseHttpError> {
-        todo!()
+        let mut result = Vec::new();
+
+        // Serialize start line
+        result.append(&mut Into::<Result<Vec<u8>, ParseHttpError>>::into(
+            self.start_line,
+        )?);
+        result.append(&mut "\r\n".as_bytes().to_vec());
+
+        // Serialize headers
+        for (key, value) in self.headers {
+            result.append(&mut key.into());
+            result.append(&mut ": ".as_bytes().to_vec());
+            result.append(&mut value.into());
+            result.append(&mut "\r\n".as_bytes().to_vec());
+        }
+        result.append(&mut "\r\n".as_bytes().to_vec());
+
+        // Serialize body
+        result.append(&mut self.body.data.clone());
+
+        Ok(result)
     }
 }
 impl Into<Result<HttpRequest, ParseHttpError>> for Vec<u8> {
     fn into(self) -> Result<HttpRequest, ParseHttpError> {
-        todo!()
+        let mut lines = self.split(|&b| b == b'\n').peekable();
+
+        // Parse start line
+        let start_line = match lines.next() {
+            Some(line) => Into::<Result<RequestStartLine, ParseHttpError>>::into(line.to_vec())?,
+            None => return Err(ParseHttpError::InvalidHttp),
+        };
+
+        // Parse headers
+        let mut headers = HashMap::new();
+        while let Some(line) = lines.peek() {
+            if line.is_empty() {
+                lines.next();
+                break;
+            }
+            let header = Into::<Result<Header, ParseHttpError>>::into(line.to_vec())?;
+            headers.insert(header.key, header.value);
+            lines.next();
+        }
+
+        // Parse body
+        let body = lines.flat_map(|line| line.to_vec()).collect();
+
+        Ok(HttpRequest {
+            start_line,
+            headers,
+            body: Body { data: body },
+        })
     }
 }
 

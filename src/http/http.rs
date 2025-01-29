@@ -458,7 +458,7 @@ impl Into<Result<Vec<u8>, ParseHttpError>> for &FormData {
 }
 
 pub struct Body {
-    data: Vec<u8>,
+    pub data: Vec<u8>,
 }
 impl Into<Result<String, ParseHttpError>> for Body {
     fn into(self) -> Result<String, ParseHttpError> {
