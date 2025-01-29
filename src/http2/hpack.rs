@@ -12,13 +12,13 @@ pub enum HpackError {
 }
 
 impl From<httlib_huffman::EncoderError> for HpackError {
-    fn from(value: httlib_huffman::EncoderError) -> Self {
+    fn from(_value: httlib_huffman::EncoderError) -> Self {
         HpackError::HuffmanEncodingError
     }
 }
 
 impl From<httlib_huffman::DecoderError> for HpackError {
-    fn from(value: httlib_huffman::DecoderError) -> Self {
+    fn from(_value: httlib_huffman::DecoderError) -> Self {
         HpackError::HuffmanDecodingError
     }
 }

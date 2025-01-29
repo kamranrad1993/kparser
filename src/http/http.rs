@@ -1,6 +1,5 @@
 use crate::Result::{self, Err, Ok};
 use core::str;
-use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fmt::{self, Display};
 use std::hash::Hash;
@@ -45,7 +44,7 @@ impl std::error::Error for ParseHttpError {}
 
 macro_rules! define_headers {
     ($($variant:ident => $name:expr),*) => {
-        #[derive(Debug)]
+        #[derive(Debug, PartialEq)]
         #[allow(non_camel_case_types)]
         pub enum StandardHeaders {
             $($variant),*
@@ -67,16 +66,6 @@ macro_rules! define_headers {
                     $($name => std::result::Result::Ok(StandardHeaders::$variant),)*
                     _ => std::result::Result::Err(ParseHttpError::ParseHeaderError(s.to_string())),
                 }
-            }
-        }
-
-        impl PartialEq for StandardHeaders {
-            fn eq(&self, other: &Self) -> bool {
-                matches!(self, other)
-                // match (self, other) {
-                //     $((Self::$variant(l0), Self::$variant(r0)) => l0 == r0,)*
-                //     _ => false,
-                // }
             }
         }
     };
@@ -251,7 +240,7 @@ impl Into<Result<HeaderValue, ParseHttpError>> for Vec<u8> {
     fn into(self) -> Result<HeaderValue, ParseHttpError> {
         match String::from_utf8(self) {
             std::result::Result::Ok(value) => Ok(HeaderValue { 0: value }),
-            std::result::Result::Err(e) => Err(ParseHttpError::ParseHeaderError(
+            std::result::Result::Err(_e) => Err(ParseHttpError::ParseHeaderError(
                 "Invalid utf-8 Value".to_string(),
             )),
         }
@@ -330,7 +319,7 @@ pub struct FormDataSection {
 }
 impl Into<Result<Vec<u8>, ParseHttpError>> for FormDataSection {
     fn into(self) -> Result<Vec<u8>, ParseHttpError> {
-        let mut result = Into::<Result<Vec<u8>, ParseHttpError>>::into(&self)?;
+        let result = Into::<Result<Vec<u8>, ParseHttpError>>::into(&self)?;
         Ok(result)
     }
 }
@@ -383,19 +372,21 @@ impl FormData {
 
             let header_section = &part[0..sections];
             let body_section = &part[(sections + 4)..(part.len() - 2)];
-            let b = std::str::from_utf8(body_section).unwrap();
 
             let mut headers: HashMap<HeaderKey, HeaderValue> = HashMap::new();
             for line in header_section.split(|&b| b == b'\n') {
-                if let (key, value) =
-                    line.split_at(line.iter().position(|&b| b == b':').unwrap_or(0))
-                {
-                    let h = std::str::from_utf8(key).unwrap();
-                    let v = std::str::from_utf8(value).unwrap();
-                    headers.insert(
-                        Into::<Result<HeaderKey, ParseHttpError>>::into(key)?,
-                        Into::<Result<HeaderValue, ParseHttpError>>::into(value)?,
-                    );
+                let colon_index = line.iter().position(|&b| b == b':').ok_or(
+                    ParseHttpError::ParseHeaderError("Invalid formdata header".to_string())  
+                );
+                match colon_index {
+                    std::result::Result::Ok(colon_index) =>{
+                        let (key, value) = line.split_at(colon_index);
+                        headers.insert(
+                            Into::<Result<HeaderKey, ParseHttpError>>::into(key)?,
+                            Into::<Result<HeaderValue, ParseHttpError>>::into(value)?,
+                        );
+                    },
+                    std::result::Result::Err(e) => return Err(e),
                 }
             }
 
@@ -442,10 +433,9 @@ impl Into<Result<Vec<u8>, ParseHttpError>> for &FormData {
             result.append(&mut self.boundary.clone().as_bytes().to_vec());
             result.append(&mut "\r\n".as_bytes().to_vec());
             result.append(&mut Into::<Result<Vec<u8>, ParseHttpError>>::into(section)?.clone());
+            result.append(&mut "\r\n".as_bytes().to_vec());
         }
-        result.append(&mut "--".as_bytes().to_vec());
-        // result.append(&mut self.boundary.clone().as_bytes().to_vec());
-        // result.append(&mut "--".as_bytes().to_vec());
+        result.splice(result.len()-2.., b"--".to_vec());
 
         Ok(result)
     }
@@ -460,7 +450,7 @@ pub struct Body {
 // }
 
 #[cfg(test)]
-mod test {
+mod test_formdata {
     use super::FormData;
 
     #[test]

@@ -97,7 +97,7 @@ mod tests {
     #[test]
     fn it_works() {
         let listener = TcpListener::bind("127.0.0.1:8080").unwrap();
-        let (tcp_stream, address) = &mut listener.accept().unwrap();
+        let (tcp_stream, _address) = &mut listener.accept().unwrap();
         println!("new connection");
 
         let mut buf = vec![0u8; 8192];
