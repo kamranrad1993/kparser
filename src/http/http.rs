@@ -4,14 +4,17 @@ use std::collections::HashMap;
 use std::fmt::{self, Display};
 use std::hash::Hash;
 use std::str::{FromStr, Utf8Error};
+use std::string::FromUtf8Error;
 
 #[derive(Debug)]
 pub enum ParseHttpError {
+    InvalidHttp,
     ParseHeaderError(String),
+    ParseBodyError(String),
     ParseFormDataError(String),
     UnknownString(String),
+    InvalidHttpMethod,
 }
-
 impl PartialEq for ParseHttpError {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
@@ -22,25 +25,35 @@ impl PartialEq for ParseHttpError {
         }
     }
 }
-
 impl From<&str> for ParseHttpError {
     fn from(residual: &str) -> Self {
         ParseHttpError::UnknownString(String::from(residual))
     }
 }
-
 impl From<Utf8Error> for ParseHttpError {
     fn from(_residual: Utf8Error) -> Self {
         ParseHttpError::UnknownString("Invalid Utf-8".to_string())
     }
 }
-
+impl From<FromUtf8Error> for ParseHttpError {
+    fn from(_residual: FromUtf8Error) -> Self {
+        ParseHttpError::UnknownString("Invalid Utf-8".to_string())
+    }
+}
 impl fmt::Display for ParseHttpError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Invalid header: {}", self)
     }
 }
 impl std::error::Error for ParseHttpError {}
+impl Into<Result<String, ParseHttpError>> for std::result::Result<String, FromUtf8Error> {
+    fn into(self) -> Result<String, ParseHttpError> {
+        match self {
+            std::result::Result::Ok(s) => Ok(s),
+            std::result::Result::Err(e) => Err(ParseHttpError::ParseBodyError(e.to_string())),
+        }
+    }
+}
 
 macro_rules! define_headers {
     ($($variant:ident => $name:expr),*) => {
@@ -375,17 +388,20 @@ impl FormData {
 
             let mut headers: HashMap<HeaderKey, HeaderValue> = HashMap::new();
             for line in header_section.split(|&b| b == b'\n') {
-                let colon_index = line.iter().position(|&b| b == b':').ok_or(
-                    ParseHttpError::ParseHeaderError("Invalid formdata header".to_string())  
-                );
+                let colon_index =
+                    line.iter()
+                        .position(|&b| b == b':')
+                        .ok_or(ParseHttpError::ParseHeaderError(
+                            "Invalid formdata header".to_string(),
+                        ));
                 match colon_index {
-                    std::result::Result::Ok(colon_index) =>{
+                    std::result::Result::Ok(colon_index) => {
                         let (key, value) = line.split_at(colon_index);
                         headers.insert(
                             Into::<Result<HeaderKey, ParseHttpError>>::into(key)?,
                             Into::<Result<HeaderValue, ParseHttpError>>::into(value)?,
                         );
-                    },
+                    }
                     std::result::Result::Err(e) => return Err(e),
                 }
             }
@@ -435,7 +451,7 @@ impl Into<Result<Vec<u8>, ParseHttpError>> for &FormData {
             result.append(&mut Into::<Result<Vec<u8>, ParseHttpError>>::into(section)?.clone());
             result.append(&mut "\r\n".as_bytes().to_vec());
         }
-        result.splice(result.len()-2.., b"--".to_vec());
+        result.splice(result.len() - 2.., b"--".to_vec());
 
         Ok(result)
     }
@@ -444,10 +460,24 @@ impl Into<Result<Vec<u8>, ParseHttpError>> for &FormData {
 pub struct Body {
     data: Vec<u8>,
 }
-
-// impl Body {
-//     pub fn get_form_data(&self, ) -> res
-// }
+impl Into<Result<String, ParseHttpError>> for Body {
+    fn into(self) -> Result<String, ParseHttpError> {
+        let result = Into::<Result<String, ParseHttpError>>::into(&self)?;
+        Ok(result)
+    }
+}
+impl Into<Result<String, ParseHttpError>> for &Body {
+    fn into(self) -> Result<String, ParseHttpError> {
+        Into::<Result<String, ParseHttpError>>::into(String::from_utf8(self.data.clone()))
+    }
+}
+impl Into<Body> for String {
+    fn into(self) -> Body {
+        Body {
+            data: self.as_bytes().to_vec(),
+        }
+    }
+}
 
 #[cfg(test)]
 mod test_formdata {
