@@ -3,6 +3,7 @@ use core::str;
 use std::collections::HashMap;
 use std::fmt::{self, Display};
 use std::hash::Hash;
+use std::result;
 use std::str::{FromStr, Utf8Error};
 use std::string::FromUtf8Error;
 
@@ -14,6 +15,7 @@ pub enum ParseHttpError {
     ParseFormDataError(String),
     UnknownString(String),
     InvalidHttpMethod,
+    FormdataBoundaryNotFound,
 }
 impl PartialEq for ParseHttpError {
     fn eq(&self, other: &Self) -> bool {
@@ -456,26 +458,99 @@ impl Into<Result<Vec<u8>, ParseHttpError>> for &FormData {
         Ok(result)
     }
 }
+impl Into<Result<FormData, ParseHttpError>> for Vec<u8> {
+    fn into(self) -> Result<FormData, ParseHttpError> {
+        let Some(firstline_end) = self.windows(2).position(|chunk| chunk == b"\r\n") else {
+            return Err(ParseHttpError::FormdataBoundaryNotFound);
+        };
 
-pub struct Body {
-    pub data: Vec<u8>,
+        let boundary = self[2..firstline_end].to_vec();
+        let boundary = Into::<Result<String, ParseHttpError>>::into(String::from_utf8(boundary))?;
+
+        let boundary_marker = format!("--{}\r\n", boundary);
+        let boundary_marker_bytes = boundary_marker.as_bytes();
+
+        let mut parts = Vec::new();
+        let mut start = 0;
+        while let Some(pos) = self[start..]
+            .windows(boundary_marker.len())
+            .position(|chunk| chunk == boundary_marker_bytes)
+        {
+            parts.push(&self[start..start + pos]);
+            start += pos + boundary_marker.len();
+        }
+        parts.push(&self[start..]); // Add the remaining part
+
+        let mut formdata_sections: Vec<FormDataSection> = Vec::new();
+
+        for part in parts {
+            if part.is_empty() || part == b"--" {
+                continue; // Skip empty or terminating boundary
+            }
+            let body_separator = "\r\n\r\n".as_bytes();
+            let sections = part
+                .windows(body_separator.len())
+                .position(|chunk| chunk == body_separator)
+                .unwrap_or(part.len());
+
+            let header_section = &part[0..sections];
+            let body_section = &part[(sections + 4)..(part.len() - 2)];
+
+            let mut headers: HashMap<HeaderKey, HeaderValue> = HashMap::new();
+            for line in header_section.split(|&b| b == b'\n') {
+                let colon_index =
+                    line.iter()
+                        .position(|&b| b == b':')
+                        .ok_or(ParseHttpError::ParseHeaderError(
+                            "Invalid formdata header".to_string(),
+                        ));
+                match colon_index {
+                    std::result::Result::Ok(colon_index) => {
+                        let (key, value) = line.split_at(colon_index);
+                        headers.insert(
+                            Into::<Result<HeaderKey, ParseHttpError>>::into(key)?,
+                            Into::<Result<HeaderValue, ParseHttpError>>::into(value)?,
+                        );
+                    }
+                    std::result::Result::Err(e) => return Err(e),
+                }
+            }
+
+            formdata_sections.push(FormDataSection {
+                headers,
+                data: body_section.to_vec(),
+            });
+        }
+
+        Ok(FormData {
+            boundary,
+            sections: formdata_sections,
+        })
+    }
 }
-impl Into<Result<String, ParseHttpError>> for Body {
-    fn into(self) -> Result<String, ParseHttpError> {
-        let result = Into::<Result<String, ParseHttpError>>::into(&self)?;
+
+pub enum Body {
+    Data(Vec<u8>),
+    FormData(FormData),
+}
+impl Into<Result<Vec<u8>, ParseHttpError>> for Body {
+    fn into(self) -> Result<Vec<u8>, ParseHttpError> {
+        let result = Into::<Result<Vec<u8>, ParseHttpError>>::into(&self)?;
         Ok(result)
     }
 }
-impl Into<Result<String, ParseHttpError>> for &Body {
-    fn into(self) -> Result<String, ParseHttpError> {
-        Into::<Result<String, ParseHttpError>>::into(String::from_utf8(self.data.clone()))
+impl Into<Result<Vec<u8>, ParseHttpError>> for &Body {
+    fn into(self) -> Result<Vec<u8>, ParseHttpError> {
+        match self {
+            Body::Data(data) => Ok(data.clone()),
+            Body::FormData(form_data) => Into::<Result<Vec<u8>, ParseHttpError>>::into(form_data),
+        }
+        
     }
 }
 impl Into<Body> for String {
     fn into(self) -> Body {
-        Body {
-            data: self.as_bytes().to_vec(),
-        }
+        Body::Data(self.as_bytes().to_vec())
     }
 }
 

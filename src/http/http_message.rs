@@ -70,17 +70,17 @@ impl Into<Result<Vec<u8>, ParseHttpError>> for RequestStartLine {
 }
 impl Into<Result<RequestStartLine, ParseHttpError>> for Vec<u8> {
     fn into(self) -> Result<RequestStartLine, ParseHttpError> {
-        let spaces_index = self.split(|(&i)| i == b' ').collect::<Vec<&[u8]>>();
-        if spaces_index.len() != 3 {
+        let splitted = self.split(|(&i)| i == b' ').collect::<Vec<&[u8]>>();
+        if splitted.len() != 3 {
             return Err(ParseHttpError::InvalidHttp);
         }
         Ok(RequestStartLine {
-            method: Into::<Result<RequestMethod, ParseHttpError>>::into(spaces_index[0].to_vec())?,
+            method: Into::<Result<RequestMethod, ParseHttpError>>::into(splitted[0].to_vec())?,
             path: Into::<Result<String, ParseHttpError>>::into(String::from_utf8(
-                spaces_index[1].to_vec(),
+                splitted[1].to_vec(),
             ))?,
             version: Into::<Result<String, ParseHttpError>>::into(String::from_utf8(
-                spaces_index[2].to_vec(),
+                splitted[2].to_vec(),
             ))?,
         })
     }
@@ -95,13 +95,11 @@ impl Into<Result<Vec<u8>, ParseHttpError>> for HttpRequest {
     fn into(self) -> Result<Vec<u8>, ParseHttpError> {
         let mut result = Vec::new();
 
-        // Serialize start line
         result.append(&mut Into::<Result<Vec<u8>, ParseHttpError>>::into(
             self.start_line,
         )?);
         result.append(&mut "\r\n".as_bytes().to_vec());
 
-        // Serialize headers
         for (key, value) in self.headers {
             result.append(&mut key.into());
             result.append(&mut ": ".as_bytes().to_vec());
@@ -110,8 +108,7 @@ impl Into<Result<Vec<u8>, ParseHttpError>> for HttpRequest {
         }
         result.append(&mut "\r\n".as_bytes().to_vec());
 
-        // Serialize body
-        result.append(&mut self.body.data.clone());
+        result.append(&mut Into::<Result<Vec<u8>, ParseHttpError>>::into(self.body)?);
 
         Ok(result)
     }
@@ -120,13 +117,11 @@ impl Into<Result<HttpRequest, ParseHttpError>> for Vec<u8> {
     fn into(self) -> Result<HttpRequest, ParseHttpError> {
         let mut lines = self.split(|&b| b == b'\n').peekable();
 
-        // Parse start line
         let start_line = match lines.next() {
             Some(line) => Into::<Result<RequestStartLine, ParseHttpError>>::into(line.to_vec())?,
             None => return Err(ParseHttpError::InvalidHttp),
         };
 
-        // Parse headers
         let mut headers = HashMap::new();
         while let Some(line) = lines.peek() {
             if line.is_empty() {
@@ -138,13 +133,12 @@ impl Into<Result<HttpRequest, ParseHttpError>> for Vec<u8> {
             lines.next();
         }
 
-        // Parse body
         let body = lines.flat_map(|line| line.to_vec()).collect();
 
         Ok(HttpRequest {
             start_line,
             headers,
-            body: Body { data: body },
+            body: Body::Data(body)
         })
     }
 }
