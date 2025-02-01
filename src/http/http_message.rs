@@ -1,7 +1,7 @@
 use crate::Result::{self, Err, Ok};
 use std::{collections::hash_map::HashMap, result, str::FromStr, vec};
 
-use super::http::{Body,Header, HeaderKey, HeaderValue, ParseHttpError};
+use super::http::{Body, Header, HeaderKey, HeaderValue, ParseHttpError};
 
 pub const VERSION: &str = "HTTP/1.1";
 pub enum RequestMethod {
@@ -108,14 +108,22 @@ impl Into<Result<Vec<u8>, ParseHttpError>> for HttpRequest {
         }
         result.append(&mut "\r\n".as_bytes().to_vec());
 
-        result.append(&mut Into::<Result<Vec<u8>, ParseHttpError>>::into(self.body)?);
+        result.append(&mut Into::<Result<Vec<u8>, ParseHttpError>>::into(
+            self.body,
+        )?);
 
         Ok(result)
     }
 }
 impl Into<Result<HttpRequest, ParseHttpError>> for Vec<u8> {
     fn into(self) -> Result<HttpRequest, ParseHttpError> {
-        let mut lines = self.split(|&b| b == b'\n').peekable();
+        let mut start = 0;
+        let mut lines = Vec::new();
+        while let Some(pos) = self[start..].windows(2).position(|line_break| line_break == b"\r\n" ){
+            lines.push(&self[start..start + pos]);
+            start+=pos+2;
+        }
+        let mut lines = lines.iter().peekable();
 
         let start_line = match lines.next() {
             Some(line) => Into::<Result<RequestStartLine, ParseHttpError>>::into(line.to_vec())?,
@@ -138,7 +146,7 @@ impl Into<Result<HttpRequest, ParseHttpError>> for Vec<u8> {
         Ok(HttpRequest {
             start_line,
             headers,
-            body: Body::Data(body)
+            body: Body::Data(body),
         })
     }
 }
@@ -167,5 +175,64 @@ impl Into<Result<Vec<u8>, ParseHttpError>> for HttpMessage {
 impl Into<Result<HttpMessage, ParseHttpError>> for Vec<u8> {
     fn into(self) -> Result<HttpMessage, ParseHttpError> {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod test_http {
+    use super::{Body, HttpRequest, RequestMethod, RequestStartLine, VERSION};
+    use crate::http::http::{Header, HeaderKey, HeaderValue, ParseHttpError};
+    use std::collections::HashMap;
+    use crate::Result;
+
+    #[test]
+    fn http_request_test() {
+        // Test request serialization
+        let request = HttpRequest {
+            start_line: RequestStartLine {
+                method: RequestMethod::GET,
+                path: String::from("/index.html"),
+                version: String::from(VERSION),
+            },
+            headers: {
+                let mut headers = HashMap::new();
+                headers.insert(
+                    HeaderKey::new("Host".to_string()),
+                    HeaderValue::new("example.com".to_string()),
+                );
+                headers
+            },
+            body: Body::Data(vec![]),
+        };
+
+        let bytes: Vec<u8> = Into::<Result<Vec<u8>, ParseHttpError>>::into(request).unwrap();
+        let expected = "GET /index.html HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        assert_eq!(String::from_utf8(bytes).unwrap(), expected);
+
+        // Test request parsing
+        let input = b"GET /test.html HTTP/1.1\r\nContent-Type: text/html\r\n\r\nHello World";
+        let request: HttpRequest = Into::<Result<HttpRequest, ParseHttpError>>::into(input.to_vec()).unwrap();
+
+        assert!(matches!(request.start_line.method, RequestMethod::GET));
+        assert_eq!(request.start_line.path, "/test.html");
+        // assert_eq!(
+        //     request
+        //         .headers
+        //         .get(&HeaderKey::from("Content-Type".to_string()))
+        //         .unwrap(),
+        //     &HeaderValue::from("text/html".to_string())
+        // );
+        // assert_eq!(
+        //     Into::<Vec<u8>>::into(request.body).unwrap(),
+        //     b"Hello World".to_vec()
+        // );
+    }
+
+    #[test]
+    #[should_panic]
+    fn invalid_request_test() {
+        // Test invalid request parsing
+        let input = b"INVALID /test.html HTTP/1.1\r\n\r\n";
+        let _: HttpRequest = Into::<Result<HttpRequest, _>>::into(input.to_vec()).unwrap();
     }
 }

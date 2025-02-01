@@ -44,7 +44,7 @@ impl From<FromUtf8Error> for ParseHttpError {
 }
 impl fmt::Display for ParseHttpError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Invalid header: {}", self)
+        write!(f, "Error: {}", self.to_string())
     }
 }
 impl std::error::Error for ParseHttpError {}
@@ -53,6 +53,19 @@ impl Into<Result<String, ParseHttpError>> for std::result::Result<String, FromUt
         match self {
             std::result::Result::Ok(s) => Ok(s),
             std::result::Result::Err(e) => Err(ParseHttpError::ParseBodyError(e.to_string())),
+        }
+    }
+}
+impl ParseHttpError {
+    fn to_string(&self) -> String {
+        match self {
+            ParseHttpError::InvalidHttp => "Invalid HTTP".to_string(),
+            ParseHttpError::ParseHeaderError(msg) => format!("Parse Header Error: {}", msg),
+            ParseHttpError::ParseBodyError(msg) => format!("Parse Body Error: {}", msg),
+            ParseHttpError::ParseFormDataError(msg) => format!("Parse FormData Error: {}", msg),
+            ParseHttpError::UnknownString(msg) => format!("Unknown String: {}", msg),
+            ParseHttpError::InvalidHttpMethod => "Invalid HTTP Method".to_string(),
+            ParseHttpError::FormdataBoundaryNotFound => "Formdata Boundary Not Found".to_string(),
         }
     }
 }
@@ -234,6 +247,11 @@ impl PartialEq for HeaderKey {
     }
 }
 impl std::cmp::Eq for HeaderKey {}
+impl HeaderKey{
+    pub fn new(value: String) -> HeaderKey {
+        HeaderKey::from_str(&value).unwrap()
+    }
+}
 
 pub struct HeaderValue(String);
 impl Into<Vec<u8>> for HeaderValue {
@@ -264,6 +282,11 @@ impl Into<Result<HeaderValue, ParseHttpError>> for Vec<u8> {
 impl Into<Result<HeaderValue, ParseHttpError>> for &[u8] {
     fn into(self) -> Result<HeaderValue, ParseHttpError> {
         Into::<Result<HeaderValue, ParseHttpError>>::into(self.to_vec())
+    }
+}
+impl HeaderValue{
+    pub fn new(value: String) -> HeaderValue{
+        HeaderValue { 0: value }
     }
 }
 
@@ -325,6 +348,14 @@ impl Into<Result<Header, ParseHttpError>> for Vec<u8> {
 impl Into<Result<Header, ParseHttpError>> for &[u8] {
     fn into(self) -> Result<Header, ParseHttpError> {
         Into::<Result<Header, ParseHttpError>>::into(self.to_vec())
+    }
+}
+impl Header{
+    pub fn new(key: String, value: String) -> Header {
+        Header {
+            key: HeaderKey::new(key),
+            value: HeaderValue::new(value),
+        }
     }
 }
 
