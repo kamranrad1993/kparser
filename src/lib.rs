@@ -6,10 +6,10 @@ pub mod u31;
 pub mod http2;
 
 use std::{
-    convert,
-    ops::{self, ControlFlow, FromResidual, Residual, Try},
+    convert, num::ParseIntError, ops::{self, ControlFlow, FromResidual, Residual, Try}, string::FromUtf8Error
 };
 
+use http::http::ParseHttpError;
 pub use http2::Http2Pri;
 
 pub mod http;
@@ -110,3 +110,22 @@ where
         }
     }
 }
+
+impl Into<Result<String, ParseHttpError>> for std::result::Result<String, FromUtf8Error> {
+    fn into(self) -> Result<String, ParseHttpError> {
+        match self {
+            std::result::Result::Ok(s) => Result::Ok(s),
+            std::result::Result::Err(e) => Result::Err(ParseHttpError::ParseBodyError(e.to_string())),
+        }
+    }
+}
+
+impl Into<Result<u32, ParseHttpError>> for std::result::Result<u32, ParseIntError> {
+    fn into(self) -> Result<u32, ParseHttpError> {
+        match self {
+            std::result::Result::Ok(s) => Result::Ok(s),
+            std::result::Result::Err(e) => Result::Err(ParseHttpError::ParseError(e.to_string())),
+        }
+    }
+}
+

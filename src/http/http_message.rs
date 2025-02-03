@@ -119,9 +119,12 @@ impl Into<Result<HttpRequest, ParseHttpError>> for Vec<u8> {
     fn into(self) -> Result<HttpRequest, ParseHttpError> {
         let mut start = 0;
         let mut lines = Vec::new();
-        while let Some(pos) = self[start..].windows(2).position(|line_break| line_break == b"\r\n" ){
+        while let Some(pos) = self[start..]
+            .windows(2)
+            .position(|line_break| line_break == b"\r\n")
+        {
             lines.push(&self[start..start + pos]);
-            start+=pos+2;
+            start += pos + 2;
         }
         let mut lines = lines.iter().peekable();
 
@@ -156,11 +159,109 @@ pub struct ResponseStartLine {
     pub response_code: u32,
     pub response_msg: String,
 }
+impl Into<Result<Vec<u8>, ParseHttpError>> for ResponseStartLine {
+    fn into(self) -> Result<Vec<u8>, ParseHttpError> {
+        let mut result = Vec::new();
+        result.append(&mut self.version.as_bytes().to_vec());
+        result.append(&mut " ".as_bytes().to_vec());
+        result.append(&mut self.response_code.to_string().as_bytes().to_vec());
+        result.append(&mut " ".as_bytes().to_vec());
+        result.append(&mut self.response_msg.as_bytes().to_vec());
+        // result.append(&mut "\r\n".as_bytes().to_vec());
+
+        Ok(result)
+    }
+}
+impl Into<Result<ResponseStartLine, ParseHttpError>> for Vec<u8> {
+    fn into(self) -> Result<ResponseStartLine, ParseHttpError> {
+        let splitted = self.split(|(&i)| i == b' ').collect::<Vec<&[u8]>>();
+        if splitted.len() < 3 {
+            return Err(ParseHttpError::InvalidHttp);
+        }
+        let version =
+            Into::<Result<String, ParseHttpError>>::into(String::from_utf8(splitted[0].to_vec()))?;
+        let response_code =
+            Into::<Result<String, ParseHttpError>>::into(String::from_utf8(splitted[1].to_vec()))?
+                .parse::<u32>()
+                .unwrap();
+        let response_msg = Into::<Result<String, ParseHttpError>>::into(String::from_utf8(
+            splitted[2..].join(&b' '),
+        ))?;
+
+        Ok(ResponseStartLine {
+            version,
+            response_code,
+            response_msg,
+        })
+    }
+}
 
 pub struct HttpResponse {
     pub start_line: ResponseStartLine,
     pub headers: HashMap<HeaderKey, HeaderValue>,
     pub body: Body,
+}
+impl Into<Result<Vec<u8>, ParseHttpError>> for HttpResponse {
+    fn into(self) -> Result<Vec<u8>, ParseHttpError> {
+        let mut result = Vec::new();
+
+        result.append(&mut Into::<Result<Vec<u8>, ParseHttpError>>::into(
+            self.start_line,
+        )?);
+        result.append(&mut "\r\n".as_bytes().to_vec());
+
+        for (key, value) in self.headers {
+            result.append(&mut key.into());
+            result.append(&mut ": ".as_bytes().to_vec());
+            result.append(&mut value.into());
+            result.append(&mut "\r\n".as_bytes().to_vec());
+        }
+        result.append(&mut "\r\n".as_bytes().to_vec());
+
+        result.append(&mut Into::<Result<Vec<u8>, ParseHttpError>>::into(
+            self.body,
+        )?);
+
+        Ok(result)
+    }
+}
+impl Into<Result<HttpResponse, ParseHttpError>> for Vec<u8> {
+    fn into(self) -> Result<HttpResponse, ParseHttpError> {
+        let mut start = 0;
+        let mut lines = Vec::new();
+        while let Some(pos) = self[start..]
+            .windows(2)
+            .position(|line_break| line_break == b"\r\n")
+        {
+            lines.push(&self[start..start + pos]);
+            start += pos + 2;
+        }
+        let mut lines = lines.iter().peekable();
+
+        let start_line = match lines.next() {
+            Some(line) => Into::<Result<ResponseStartLine, ParseHttpError>>::into(line.to_vec())?,
+            None => return Err(ParseHttpError::InvalidHttp),
+        };
+
+        let mut headers = HashMap::new();
+        while let Some(line) = lines.peek() {
+            if line.is_empty() {
+                lines.next();
+                break;
+            }
+            let header = Into::<Result<Header, ParseHttpError>>::into(line.to_vec())?;
+            headers.insert(header.key, header.value);
+            lines.next();
+        }
+
+        let body = lines.flat_map(|line| line.to_vec()).collect();
+
+        Ok(HttpResponse {
+            start_line,
+            headers,
+            body: Body::Data(body),
+        })
+    }
 }
 
 pub enum HttpMessage {
@@ -182,8 +283,9 @@ impl Into<Result<HttpMessage, ParseHttpError>> for Vec<u8> {
 mod test_http {
     use super::{Body, HttpRequest, RequestMethod, RequestStartLine, VERSION};
     use crate::http::http::{Header, HeaderKey, HeaderValue, ParseHttpError};
-    use std::collections::HashMap;
+    use crate::http::http_message::{HttpResponse, ResponseStartLine};
     use crate::Result;
+    use std::collections::HashMap;
 
     #[test]
     fn http_request_test() {
@@ -211,7 +313,8 @@ mod test_http {
 
         // Test request parsing
         let input = b"GET /test.html HTTP/1.1\r\nContent-Type: text/html\r\n\r\nHello World";
-        let request: HttpRequest = Into::<Result<HttpRequest, ParseHttpError>>::into(input.to_vec()).unwrap();
+        let request: HttpRequest =
+            Into::<Result<HttpRequest, ParseHttpError>>::into(input.to_vec()).unwrap();
 
         assert!(matches!(request.start_line.method, RequestMethod::GET));
         assert_eq!(request.start_line.path, "/test.html");
@@ -234,5 +337,50 @@ mod test_http {
         // Test invalid request parsing
         let input = b"INVALID /test.html HTTP/1.1\r\n\r\n";
         let _: HttpRequest = Into::<Result<HttpRequest, _>>::into(input.to_vec()).unwrap();
+    }
+
+    #[test]
+    fn http_response_test() {
+        // Test response serialization
+        let response = HttpResponse {
+            start_line: ResponseStartLine {
+                version: String::from(VERSION),
+                response_code: 200,
+                response_msg: String::from("OK"),
+            },
+            headers: {
+                let mut headers = HashMap::new();
+                headers.insert(
+                    HeaderKey::new("Content-Type".to_string()),
+                    HeaderValue::new("text/html".to_string()),
+                );
+                headers
+            },
+            body: Body::Data(b"Hello World".to_vec()),
+        };
+
+        let bytes: Vec<u8> = Into::<Result<Vec<u8>, ParseHttpError>>::into(response).unwrap();
+        let expected = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\nHello World";
+        assert_eq!(String::from_utf8(bytes).unwrap(), expected);
+
+        // Test response parsing
+        let input = b"HTTP/1.1 404 Not Found\r\nContent-Type: text/html\r\n\r\nPage not found";
+        let response: HttpResponse =
+            Into::<Result<HttpResponse, ParseHttpError>>::into(input.to_vec()).unwrap();
+
+        assert_eq!(response.start_line.version, "HTTP/1.1");
+        assert_eq!(response.start_line.response_code, 404);
+        assert_eq!(response.start_line.response_msg, "Not Found");
+        // assert_eq!(
+        //     response
+        //         .headers
+        //         .get(&HeaderKey::from("Content-Type".to_string()))
+        //         .unwrap(),
+        //     &HeaderValue::from("text/html".to_string())
+        // );
+        // assert_eq!(
+        //     Into::<Vec<u8>>::into(response.body).unwrap(),
+        //     b"Page not found".to_vec()
+        // );
     }
 }

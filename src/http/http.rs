@@ -10,6 +10,7 @@ use std::string::FromUtf8Error;
 #[derive(Debug)]
 pub enum ParseHttpError {
     InvalidHttp,
+    ParseError(String),
     ParseHeaderError(String),
     ParseBodyError(String),
     ParseFormDataError(String),
@@ -48,14 +49,6 @@ impl fmt::Display for ParseHttpError {
     }
 }
 impl std::error::Error for ParseHttpError {}
-impl Into<Result<String, ParseHttpError>> for std::result::Result<String, FromUtf8Error> {
-    fn into(self) -> Result<String, ParseHttpError> {
-        match self {
-            std::result::Result::Ok(s) => Ok(s),
-            std::result::Result::Err(e) => Err(ParseHttpError::ParseBodyError(e.to_string())),
-        }
-    }
-}
 impl ParseHttpError {
     fn to_string(&self) -> String {
         match self {
@@ -66,6 +59,7 @@ impl ParseHttpError {
             ParseHttpError::UnknownString(msg) => format!("Unknown String: {}", msg),
             ParseHttpError::InvalidHttpMethod => "Invalid HTTP Method".to_string(),
             ParseHttpError::FormdataBoundaryNotFound => "Formdata Boundary Not Found".to_string(),
+            ParseHttpError::ParseError(msg) => format!("Parse Error: {}", msg),
         }
     }
 }
