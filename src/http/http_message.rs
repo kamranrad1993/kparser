@@ -1,7 +1,7 @@
 use crate::Result::{self, Err, Ok};
-use std::{collections::hash_map::HashMap, result, str::FromStr, vec};
+use std::{collections::hash_map::HashMap, ops::Deref, result, str::FromStr, vec};
 
-use super::http::{Body, Header, HeaderKey, HeaderValue, ParseHttpError};
+use super::http::{Body, FormData, Header, HeaderKey, HeaderValue, ParseHttpError};
 
 pub const VERSION: &str = "HTTP/1.1";
 pub enum RequestMethod {
@@ -154,6 +154,75 @@ impl Into<Result<HttpRequest, ParseHttpError>> for Vec<u8> {
     }
 }
 
+struct HttpRequestBuilder {
+    context: HttpRequest,
+}
+impl HttpRequestBuilder {
+    pub fn new(method: RequestMethod, path: String) -> Result<HttpRequestBuilder, ParseHttpError> {
+        Result::<HttpRequestBuilder, ParseHttpError>::new(method, path)
+    }
+}
+impl Result<HttpRequestBuilder, ParseHttpError> {
+    fn new(method: RequestMethod, path: String) -> Result<HttpRequestBuilder, ParseHttpError> {
+        Ok(HttpRequestBuilder {
+            context: HttpRequest {
+                start_line: RequestStartLine {
+                    method: method,
+                    path: path,
+                    version: VERSION.to_string(),
+                },
+                headers: HashMap::new(),
+                body: Body::None,
+            },
+        })
+    }
+
+    pub fn add_header(
+        &mut self,
+        header: Header,
+    ) -> Result<&mut HttpRequestBuilder, ParseHttpError> {
+        match self {
+            Ok(this) => {
+                this.context.headers.insert(header.key, header.value);
+                Ok(this)
+            }
+            Err(error) => Err(ParseHttpError::InvalidHttp),
+        }
+    }
+
+    pub fn add_body(&mut self, data: Vec<u8>) -> Result<&mut HttpRequestBuilder, ParseHttpError> {
+        match self {
+            Ok(this) => {
+                this.context.body = Body::Data(data);
+                Ok(this)
+            }
+            Err(error) => Err(ParseHttpError::InvalidHttp),
+        }
+    }
+
+    pub fn add_formdata(
+        &mut self,
+        formdata: FormData,
+    ) -> Result<&mut HttpRequestBuilder, ParseHttpError> {
+        match self {
+            Ok(this) => {
+                this.context.body = Body::FormData(formdata);
+                Ok(this)
+            }
+            Err(error) => Err(ParseHttpError::InvalidHttp),
+        }
+    }
+
+    pub fn build(self) -> Result<HttpRequest, ParseHttpError> {
+        match self {
+            Ok(this) => {
+                Ok(this.context)
+            }
+            Err(error) => Err(ParseHttpError::InvalidHttp),
+        }
+    }
+}
+
 pub struct ResponseStartLine {
     pub version: String,
     pub response_code: u32,
@@ -264,6 +333,76 @@ impl Into<Result<HttpResponse, ParseHttpError>> for Vec<u8> {
     }
 }
 
+struct HttpResponseBuilder {
+    context: HttpResponse,
+}
+impl HttpResponseBuilder {
+    pub fn new(response_code: u32, response_msg: String) -> Result<HttpResponseBuilder, ParseHttpError> {
+        Result::<HttpResponseBuilder, ParseHttpError>::new(response_code, response_msg)
+    }
+}
+impl Result<HttpResponseBuilder, ParseHttpError> {
+    fn new(response_code: u32, response_msg: String) -> Result<HttpResponseBuilder, ParseHttpError> {
+        Ok(HttpResponseBuilder {
+            context: HttpResponse {
+                start_line: ResponseStartLine {
+                    version: VERSION.to_string(),
+                    response_code: response_code,
+                    response_msg: response_msg
+                },
+                headers: HashMap::new(),
+                body: Body::None,
+            },
+        })
+    }
+
+    pub fn add_header(
+        &mut self,
+        header: Header,
+    ) -> Result<&mut HttpResponseBuilder, ParseHttpError> {
+        match self {
+            Ok(this) => {
+                this.context.headers.insert(header.key, header.value);
+                Ok(this)
+            }
+            Err(error) => Err(ParseHttpError::InvalidHttp),
+        }
+    }
+
+    pub fn add_body(&mut self, data: Vec<u8>) -> Result<&mut HttpResponseBuilder, ParseHttpError> {
+        match self {
+            Ok(this) => {
+                this.context.body = Body::Data(data);
+                Ok(this)
+            }
+            Err(error) => Err(ParseHttpError::InvalidHttp),
+        }
+    }
+
+    pub fn add_formdata(
+        &mut self,
+        formdata: FormData,
+    ) -> Result<&mut HttpResponseBuilder, ParseHttpError> {
+        match self {
+            Ok(this) => {
+                this.context.body = Body::FormData(formdata);
+                Ok(this)
+            }
+            Err(error) => Err(ParseHttpError::InvalidHttp),
+        }
+    }
+
+    pub fn build(self) -> Result<HttpResponse, ParseHttpError> {
+        match self {
+            Ok(this) => {
+                Ok(this.context)
+            }
+            Err(error) => Err(ParseHttpError::InvalidHttp),
+        }
+    }
+}
+
+
 pub enum HttpMessage {
     Request(HttpRequest),
     Response(HttpResponse),
@@ -276,6 +415,32 @@ impl Into<Result<Vec<u8>, ParseHttpError>> for HttpMessage {
 impl Into<Result<HttpMessage, ParseHttpError>> for Vec<u8> {
     fn into(self) -> Result<HttpMessage, ParseHttpError> {
         todo!()
+    }
+}
+
+pub struct HttpMessageBuilder {
+    message: Option<HttpMessage>,
+}
+impl HttpMessageBuilder {
+    pub fn new() -> Self {
+        HttpMessageBuilder { message: None }
+    }
+
+    pub fn request(mut self, request: HttpRequest) -> Self {
+        self.message = Some(HttpMessage::Request(request));
+        self
+    }
+
+    pub fn response(mut self, response: HttpResponse) -> Self {
+        self.message = Some(HttpMessage::Response(response));
+        self
+    }
+
+    pub fn build(self) -> Result<HttpMessage, ParseHttpError> {
+        match self.message {
+            Some(message) => Ok(message),
+            None => Err(ParseHttpError::InvalidHttp),
+        }
     }
 }
 
@@ -299,8 +464,8 @@ mod test_http {
             headers: {
                 let mut headers = HashMap::new();
                 headers.insert(
-                    HeaderKey::new("Host".to_string()),
-                    HeaderValue::new("example.com".to_string()),
+                    HeaderKey::new("Host".to_string()).unwrap(),
+                    HeaderValue::new("example.com".to_string()).unwrap(),
                 );
                 headers
             },
@@ -351,8 +516,8 @@ mod test_http {
             headers: {
                 let mut headers = HashMap::new();
                 headers.insert(
-                    HeaderKey::new("Content-Type".to_string()),
-                    HeaderValue::new("text/html".to_string()),
+                    HeaderKey::new("Content-Type".to_string()).unwrap(),
+                    HeaderValue::new("text/html".to_string()).unwrap(),
                 );
                 headers
             },

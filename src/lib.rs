@@ -1,12 +1,11 @@
 #![feature(try_trait_v2_residual, try_trait_v2)]
-#![allow(try_trait_v2_residual)]
 pub mod u24;
 pub mod u31;
 
 pub mod http2;
 
 use std::{
-    convert, num::ParseIntError, ops::{self, ControlFlow, FromResidual, Residual, Try}, string::FromUtf8Error
+    convert, num::ParseIntError, ops::ControlFlow, string::FromUtf8Error
 };
 
 use http::http::ParseHttpError;
