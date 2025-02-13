@@ -1,5 +1,5 @@
 use crate::Result::{self, Err, Ok};
-use std::{collections::hash_map::HashMap, ops::Deref, result, str::FromStr, vec};
+use std::{clone, collections::hash_map::HashMap, ops::Deref, result, str::FromStr, vec};
 
 use super::http::{Body, FormData, Header, HeaderKey, HeaderValue, ParseHttpError};
 
@@ -14,6 +14,21 @@ pub enum RequestMethod {
     POST,
     PUT,
     TRACE,
+}
+impl Clone for RequestMethod {
+    fn clone(&self) -> Self {
+        match self {
+            Self::CONNECT => Self::CONNECT,
+            Self::DELETE => Self::DELETE,
+            Self::GET => Self::GET,
+            Self::HEAD => Self::HEAD,
+            Self::OPTIONS => Self::OPTIONS,
+            Self::PATCH => Self::PATCH,
+            Self::POST => Self::POST,
+            Self::PUT => Self::PUT,
+            Self::TRACE => Self::TRACE,
+        }
+    }
 }
 impl Into<Result<Vec<u8>, ParseHttpError>> for RequestMethod {
     fn into(self) -> Result<Vec<u8>, ParseHttpError> {
@@ -54,6 +69,16 @@ pub struct RequestStartLine {
     pub path: String,
     version: String,
 }
+impl Clone for RequestStartLine{
+    fn clone(&self) -> Self {
+        Self { method: self.method.clone(), path: self.path.clone(), version: self.version.clone() }
+    }
+}
+impl Clone for ResponseStartLine{
+    fn clone(&self) -> Self {
+        Self { version: self.version.clone(), response_code: self.response_code.clone(), response_msg: self.response_msg.clone() }
+    }
+}
 impl Into<Result<Vec<u8>, ParseHttpError>> for RequestStartLine {
     fn into(self) -> Result<Vec<u8>, ParseHttpError> {
         let mut result = Vec::new();
@@ -90,6 +115,11 @@ pub struct HttpRequest {
     pub start_line: RequestStartLine,
     pub headers: HashMap<HeaderKey, HeaderValue>,
     pub body: Body,
+}
+impl Clone for HttpRequest{
+    fn clone(&self) -> Self {
+        Self { start_line: self.start_line.clone(), headers: self.headers.clone(), body: self.body.clone() }
+    }
 }
 impl Into<Result<Vec<u8>, ParseHttpError>> for HttpRequest {
     fn into(self) -> Result<Vec<u8>, ParseHttpError> {
@@ -157,6 +187,11 @@ impl Into<Result<HttpRequest, ParseHttpError>> for Vec<u8> {
 struct HttpRequestBuilder {
     context: HttpRequest,
 }
+impl Clone for HttpRequestBuilder{
+    fn clone(&self) -> Self {
+        Self { context: self.context.clone() }
+    }
+}
 impl HttpRequestBuilder {
     pub fn new(method: RequestMethod, path: String) -> Result<HttpRequestBuilder, ParseHttpError> {
         Result::<HttpRequestBuilder, ParseHttpError>::new(method, path)
@@ -180,44 +215,42 @@ impl Result<HttpRequestBuilder, ParseHttpError> {
     pub fn add_header(
         &mut self,
         header: Header,
-    ) -> Result<&mut HttpRequestBuilder, ParseHttpError> {
+    ) -> &mut Result<HttpRequestBuilder, ParseHttpError> {
         match self {
             Ok(this) => {
                 this.context.headers.insert(header.key, header.value);
-                Ok(this)
+                self
             }
-            Err(error) => Err(ParseHttpError::InvalidHttp),
+            Err(error) => self,
         }
     }
 
-    pub fn add_body(&mut self, data: Vec<u8>) -> Result<&mut HttpRequestBuilder, ParseHttpError> {
+    pub fn add_body(&mut self, data: Vec<u8>) -> &mut Result<HttpRequestBuilder, ParseHttpError> {
         match self {
             Ok(this) => {
                 this.context.body = Body::Data(data);
-                Ok(this)
+                self
             }
-            Err(error) => Err(ParseHttpError::InvalidHttp),
+            Err(error) => self,
         }
     }
 
     pub fn add_formdata(
         &mut self,
         formdata: FormData,
-    ) -> Result<&mut HttpRequestBuilder, ParseHttpError> {
+    ) -> &mut Result<HttpRequestBuilder, ParseHttpError> {
         match self {
             Ok(this) => {
                 this.context.body = Body::FormData(formdata);
-                Ok(this)
+                self
             }
-            Err(error) => Err(ParseHttpError::InvalidHttp),
+            Err(error) => self,
         }
     }
 
     pub fn build(self) -> Result<HttpRequest, ParseHttpError> {
         match self {
-            Ok(this) => {
-                Ok(this.context)
-            }
+            Ok(this) => Ok(this.context),
             Err(error) => Err(ParseHttpError::InvalidHttp),
         }
     }
@@ -269,6 +302,11 @@ pub struct HttpResponse {
     pub start_line: ResponseStartLine,
     pub headers: HashMap<HeaderKey, HeaderValue>,
     pub body: Body,
+}
+impl Clone for HttpResponse {
+    fn clone(&self) -> Self {
+        Self { start_line: self.start_line.clone(), headers: self.headers.clone(), body: self.body.clone() }
+    }
 }
 impl Into<Result<Vec<u8>, ParseHttpError>> for HttpResponse {
     fn into(self) -> Result<Vec<u8>, ParseHttpError> {
@@ -336,19 +374,30 @@ impl Into<Result<HttpResponse, ParseHttpError>> for Vec<u8> {
 struct HttpResponseBuilder {
     context: HttpResponse,
 }
+impl Clone for HttpResponseBuilder {
+    fn clone(&self) -> Self {
+        Self { context: self.context.clone() }
+    }
+}
 impl HttpResponseBuilder {
-    pub fn new(response_code: u32, response_msg: String) -> Result<HttpResponseBuilder, ParseHttpError> {
+    pub fn new(
+        response_code: u32,
+        response_msg: String,
+    ) -> Result<HttpResponseBuilder, ParseHttpError> {
         Result::<HttpResponseBuilder, ParseHttpError>::new(response_code, response_msg)
     }
 }
 impl Result<HttpResponseBuilder, ParseHttpError> {
-    fn new(response_code: u32, response_msg: String) -> Result<HttpResponseBuilder, ParseHttpError> {
+    fn new(
+        response_code: u32,
+        response_msg: String,
+    ) -> Result<HttpResponseBuilder, ParseHttpError> {
         Ok(HttpResponseBuilder {
             context: HttpResponse {
                 start_line: ResponseStartLine {
                     version: VERSION.to_string(),
                     response_code: response_code,
-                    response_msg: response_msg
+                    response_msg: response_msg,
                 },
                 headers: HashMap::new(),
                 body: Body::None,
@@ -359,87 +408,43 @@ impl Result<HttpResponseBuilder, ParseHttpError> {
     pub fn add_header(
         &mut self,
         header: Header,
-    ) -> Result<&mut HttpResponseBuilder, ParseHttpError> {
+    ) -> &mut Result<HttpResponseBuilder, ParseHttpError> {
         match self {
             Ok(this) => {
                 this.context.headers.insert(header.key, header.value);
-                Ok(this)
+                self
             }
-            Err(error) => Err(ParseHttpError::InvalidHttp),
+            Err(error) => self,
         }
     }
 
-    pub fn add_body(&mut self, data: Vec<u8>) -> Result<&mut HttpResponseBuilder, ParseHttpError> {
+    pub fn add_body(&mut self, data: Vec<u8>) -> &mut Result<HttpResponseBuilder, ParseHttpError> {
         match self {
             Ok(this) => {
                 this.context.body = Body::Data(data);
-                Ok(this)
+                self
             }
-            Err(error) => Err(ParseHttpError::InvalidHttp),
+            Err(error) => self,
         }
     }
 
     pub fn add_formdata(
         &mut self,
         formdata: FormData,
-    ) -> Result<&mut HttpResponseBuilder, ParseHttpError> {
+    ) -> &mut Result<HttpResponseBuilder, ParseHttpError> {
         match self {
             Ok(this) => {
                 this.context.body = Body::FormData(formdata);
-                Ok(this)
+                self
             }
-            Err(error) => Err(ParseHttpError::InvalidHttp),
+            Err(error) => self,
         }
     }
 
     pub fn build(self) -> Result<HttpResponse, ParseHttpError> {
         match self {
-            Ok(this) => {
-                Ok(this.context)
-            }
+            Ok(this) => Ok(this.context),
             Err(error) => Err(ParseHttpError::InvalidHttp),
-        }
-    }
-}
-
-
-pub enum HttpMessage {
-    Request(HttpRequest),
-    Response(HttpResponse),
-}
-impl Into<Result<Vec<u8>, ParseHttpError>> for HttpMessage {
-    fn into(self) -> Result<Vec<u8>, ParseHttpError> {
-        todo!()
-    }
-}
-impl Into<Result<HttpMessage, ParseHttpError>> for Vec<u8> {
-    fn into(self) -> Result<HttpMessage, ParseHttpError> {
-        todo!()
-    }
-}
-
-pub struct HttpMessageBuilder {
-    message: Option<HttpMessage>,
-}
-impl HttpMessageBuilder {
-    pub fn new() -> Self {
-        HttpMessageBuilder { message: None }
-    }
-
-    pub fn request(mut self, request: HttpRequest) -> Self {
-        self.message = Some(HttpMessage::Request(request));
-        self
-    }
-
-    pub fn response(mut self, response: HttpResponse) -> Self {
-        self.message = Some(HttpMessage::Response(response));
-        self
-    }
-
-    pub fn build(self) -> Result<HttpMessage, ParseHttpError> {
-        match self.message {
-            Some(message) => Ok(message),
-            None => Err(ParseHttpError::InvalidHttp),
         }
     }
 }
@@ -448,7 +453,7 @@ impl HttpMessageBuilder {
 mod test_http {
     use super::{Body, HttpRequest, RequestMethod, RequestStartLine, VERSION};
     use crate::http::http::{Header, HeaderKey, HeaderValue, ParseHttpError};
-    use crate::http::http_message::{HttpResponse, ResponseStartLine};
+    use crate::http::http_message::{HttpRequestBuilder, HttpResponse, ResponseStartLine};
     use crate::Result;
     use std::collections::HashMap;
 
@@ -546,6 +551,33 @@ mod test_http {
         // assert_eq!(
         //     Into::<Vec<u8>>::into(response.body).unwrap(),
         //     b"Page not found".to_vec()
+        // );
+    }
+
+    #[test]
+    fn htt_request_builder_test() {
+        let mut builder = HttpRequestBuilder::new(RequestMethod::POST, "/submit".to_string());
+        let mut builder = builder
+            .add_header(Header {
+                key: HeaderKey::new("Content-Type".to_string()).unwrap(),
+                value: HeaderValue::new("application/json".to_string()).unwrap(),
+            })
+            .add_body(b"{\"key\":\"value\"}".to_vec());
+
+        let request = builder.clone().build().unwrap();
+
+        assert!(matches!(request.start_line.method, RequestMethod::POST));
+        assert_eq!(request.start_line.path, "/submit");
+        // assert_eq!(
+        //     request
+        //         .headers
+        //         .get(&HeaderKey::new("Content-Type".to_string()).unwrap())
+        //         .unwrap(),
+        //     &HeaderValue::new("application/json".to_string()).unwrap()
+        // );
+        // assert_eq!(
+        //     Into::<Vec<u8>>::into(request.body).unwrap(),
+        //     b"{\"key\":\"value\"}".to_vec()
         // );
     }
 }

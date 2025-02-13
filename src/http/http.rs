@@ -63,6 +63,20 @@ impl ParseHttpError {
         }
     }
 }
+impl Clone for ParseHttpError{
+    fn clone(&self) -> Self {
+        match self {
+            Self::InvalidHttp => Self::InvalidHttp,
+            Self::ParseError(arg0) => Self::ParseError(arg0.clone()),
+            Self::ParseHeaderError(arg0) => Self::ParseHeaderError(arg0.clone()),
+            Self::ParseBodyError(arg0) => Self::ParseBodyError(arg0.clone()),
+            Self::ParseFormDataError(arg0) => Self::ParseFormDataError(arg0.clone()),
+            Self::UnknownString(arg0) => Self::UnknownString(arg0.clone()),
+            Self::InvalidHttpMethod => Self::InvalidHttpMethod,
+            Self::FormdataBoundaryNotFound => Self::FormdataBoundaryNotFound,
+        }
+    }
+}
 
 macro_rules! define_headers {
     ($($variant:ident => $name:expr),*) => {
@@ -87,6 +101,14 @@ macro_rules! define_headers {
                 match s {
                     $($name => std::result::Result::Ok(StandardHeaders::$variant),)*
                     _ => std::result::Result::Err(ParseHttpError::ParseHeaderError(s.to_string())),
+                }
+            }
+        }
+
+        impl Clone for StandardHeaders {
+            fn clone(&self) -> Self {
+                match self {
+                    $(StandardHeaders::$variant => StandardHeaders::$variant),*
                 }
             }
         }
@@ -141,6 +163,11 @@ define_headers! {
 }
 
 pub struct CustomHeader(String);
+impl Clone for CustomHeader{
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
 impl PartialEq for CustomHeader {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
@@ -150,6 +177,14 @@ impl PartialEq for CustomHeader {
 pub enum HeaderKey {
     StandardHeader(StandardHeaders),
     CustomHeader(CustomHeader),
+}
+impl Clone for HeaderKey {
+    fn clone(&self) -> Self {
+        match self {
+            Self::StandardHeader(arg0) => Self::StandardHeader(arg0.clone()),
+            Self::CustomHeader(arg0) => Self::CustomHeader(arg0.clone()),
+        }
+    }
 }
 impl FromStr for HeaderKey {
     type Err = ParseHttpError;
@@ -248,6 +283,11 @@ impl HeaderKey {
 }
 
 pub struct HeaderValue(String);
+impl Clone for HeaderValue {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
 impl Into<Vec<u8>> for HeaderValue {
     fn into(self) -> Vec<u8> {
         self.0.as_bytes().to_vec()
@@ -287,6 +327,11 @@ impl HeaderValue {
 pub struct Header {
     pub key: HeaderKey,
     pub value: HeaderValue,
+}
+impl Clone for Header {
+    fn clone(&self) -> Self {
+        Self { key: self.key.clone(), value: self.value.clone() }
+    }
 }
 impl Into<Vec<u8>> for Header {
     fn into(self) -> Vec<u8> {
@@ -357,6 +402,11 @@ pub struct FormDataSection {
     pub headers: HashMap<HeaderKey, HeaderValue>,
     pub data: Vec<u8>,
 }
+impl Clone for FormDataSection{
+    fn clone(&self) -> Self {
+        Self { headers: self.headers.clone(), data: self.data.clone() }
+    }
+}
 impl Into<Result<Vec<u8>, ParseHttpError>> for FormDataSection {
     fn into(self) -> Result<Vec<u8>, ParseHttpError> {
         let result = Into::<Result<Vec<u8>, ParseHttpError>>::into(&self)?;
@@ -392,6 +442,11 @@ impl FormDataSection {
 pub struct FormData {
     pub boundary: String,
     pub sections: Vec<FormDataSection>,
+}
+impl Clone for FormData{
+    fn clone(&self) -> Self {
+        Self { boundary: self.boundary.clone(), sections: self.sections.clone() }
+    }
 }
 impl FormData {
     pub fn parse(boundary: String, raw_data: Vec<u8>) -> Result<FormData, ParseHttpError> {
@@ -577,6 +632,15 @@ pub enum Body {
     Data(Vec<u8>),
     FormData(FormData),
     None
+}
+impl Clone for Body{
+    fn clone(&self) -> Self {
+        match self {
+            Self::Data(arg0) => Self::Data(arg0.clone()),
+            Self::FormData(arg0) => Self::FormData(arg0.clone()),
+            Self::None => Self::None,
+        }
+    }
 }
 impl Into<Result<Vec<u8>, ParseHttpError>> for Body {
     fn into(self) -> Result<Vec<u8>, ParseHttpError> {

@@ -26,6 +26,7 @@ mod tests {
 #[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Debug, Hash)]
 pub enum Result<T, E>
 where
+    T: Clone,
     E: std::fmt::Debug,
     E: std::fmt::Display
 {
@@ -34,6 +35,7 @@ where
 }
 impl<T, E> From<Result<T, E>> for std::result::Result<T, E>
 where
+    T: Clone,
     E: std::fmt::Debug,
     E: std::fmt::Display
 {
@@ -46,6 +48,7 @@ where
 }
 impl<T, E> From<std::result::Result<T, E>> for Result<T, E>
 where
+    T: Clone,
     E: std::fmt::Debug,
     E: std::fmt::Display
 {
@@ -59,6 +62,7 @@ where
 
 impl<T, E> std::ops::Try for Result<T, E>
 where
+    T: Clone,
     E: std::fmt::Debug,
     E: std::fmt::Display
 {
@@ -81,6 +85,7 @@ where
     F: std::fmt::Debug,
     F: std::fmt::Display,
     E: From<F>,
+    T: Clone,
     E: std::fmt::Debug,
     E: std::fmt::Display
 {
@@ -94,6 +99,7 @@ where
 
 impl<T, E> Result<T, E>
 where
+    T: Clone,
     E: std::fmt::Debug,
     E: std::fmt::Display
 {
@@ -101,7 +107,8 @@ where
     #[track_caller]
     pub fn unwrap(self) -> T
     where
-        E: std::fmt::Debug,
+        T: Clone,
+    E: std::fmt::Debug,
     {
         match self {
             Result::Ok(t) => t,
